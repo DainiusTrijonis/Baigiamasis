@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "300488874656",
+    "firebase_url": "https://baigiamasis-c2906.firebaseio.com",
+    "project_id": "baigiamasis-c2906",
+    "storage_bucket": "baigiamasis-c2906.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:300488874656:android:3ae46b79ccb26e542347c5",
+        "android_client_info": {
+          "package_name": "com.rnclient"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "300488874656-2dko419dn0d1dp5a7lao3etnna9lfpeg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rnclient",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "300488874656-qfnhpub4dgjjntrvq917hvulq2c5h699.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3xE73fbC_BEErkbZOXl11622Aug-9sds"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "300488874656-qfnhpub4dgjjntrvq917hvulq2c5h699.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
