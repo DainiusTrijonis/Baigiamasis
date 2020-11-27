@@ -27,7 +27,38 @@ const productConverter = {
       return new Product(data.name, data.photoURL, data.date);
   },
 }
+
+class History {
+  lowestPrice: number;
+  date: number;
+  constructor (lowestPrice:number, date:number) {
+    this.lowestPrice = lowestPrice;
+    this.date = date;
+  }
+}
+const historyConverter = {
+  toFirestore: function(history:History) {
+      return {
+        lowestPrice: history.lowestPrice,
+        date: history.date,
+      }
+  },
+  fromFirestore: function(snapshot:FirebaseFirestore.QueryDocumentSnapshot){
+      const data = snapshot.data();
+      return new History(data.lowestPrice, data.date);
+  },
+}
+
  
+class CommerceQuery {
+  eCommerce: ECommerce;
+  reference: FirebaseFirestore.QueryDocumentSnapshot<ECommerce>
+  constructor (eCommerce:ECommerce, reference:FirebaseFirestore.QueryDocumentSnapshot<ECommerce>) {
+    this.eCommerce = eCommerce;
+    this.reference = reference;
+  }
+}
+
 class ECommerce {
   shopName: string;
   shopLogoURL: string;
@@ -63,48 +94,42 @@ const eCommerceConverter = {
 }
 
 
+
 admin.initializeApp({
  credential: admin.credential.cert(serviceAccount),
 });
 
 export const checkPrice = functions.runWith({memory:'2GB'}).https.onRequest(async (request, response) => {
-  const browser:puppeteer.Browser = await puppeteer.launch({headless: true, args: [ '--no-sandbox', '--disable-setuid-sandbox']});
   const boolean:Boolean = await getSenukaiProduct("Intel Core i5-10600K",'').then((eCommerce:ECommerce) => {
     const product:Product = {name: eCommerce.productName, photoURL:eCommerce.photoURL, date:admin.firestore.Timestamp.now().seconds }
     if(eCommerce.href !== '') {
       return admin.firestore().collection('product').add(product).then((doc) => {
+        
         return doc.collection('ECommerce').doc(eCommerce.shopName).set(eCommerce).then(async () => {
           console.log("Finish set function for Senukai");
           await getAmazonProduct(product.name,'').then((eCommerceA:ECommerce) => {
             doc.collection('ECommerce').doc(eCommerceA.shopName).set(eCommerceA).then( ()=>{
-              browser.close().then(()=>{console.log("closed browser")}).catch((err)=>{console.log(err)});
               console.log("Finish set function for Amazon")
             }).catch((error) => {   
-              browser.close().then(()=>{console.log("closed browser")}).catch((err)=>{console.log(err)});
               console.log(error)
             })
           })
-
           return true;
         }).catch((error) => {
           console.log(error);
-          browser.close().then(()=>{console.log("closed browser")}).catch((err)=>{console.log(err)});
           return false;
         });
       }).catch((error) => {
         console.log(error);
-        browser.close().then(()=>{console.log("closed browser")}).catch((err)=>{console.log(err)});
         return false;
       }) 
     }
     else {
       console.log("Wrong href")
-      browser.close().then(()=>{console.log("closed browser")}).catch((err)=>{console.log(err)});
       return false;
     }
   }).catch((error) => {
     console.log(error)
-    browser.close().then(()=>{console.log("closed browser")}).catch((err)=>{console.log(err)});
     return false;
   });
   console.log(boolean);
@@ -113,7 +138,7 @@ export const checkPrice = functions.runWith({memory:'2GB'}).https.onRequest(asyn
 });
 
 
-export const updateProducts = functions.runWith({memory:'2GB'}).https.onRequest( (request, response) => {
+export const updateProducts = functions.runWith({memory:'2GB'}).https.onRequest( (request, response) => {  
   const time = admin.firestore.Timestamp.now().seconds-60;
   Promise.all([
     admin.firestore().collection('product').where('date','<',time).limit(2).withConverter(productConverter).get().then((querySnapshot)=>{
@@ -139,7 +164,8 @@ export const updateProducts = functions.runWith({memory:'2GB'}).https.onRequest(
                 ec.ref.set(eCommerce).then(()=>{
                   console.log("Updated eCommerce")
                 }).catch((error)=>{ console.log(error)})
-                return eCommerce
+                const commerceQuery:CommerceQuery = new CommerceQuery(eCommerce,ec);
+                return commerceQuery
               })
             }
             else if (eco.shopName === 'Amazon') {
@@ -147,20 +173,52 @@ export const updateProducts = functions.runWith({memory:'2GB'}).https.onRequest(
                 ec.ref.set(eCommerce).then(()=>{
                   console.log("Updated eCommerce")
                 }).catch((error)=>{ console.log(error)})
-                return eCommerce
+                const commerceQuery:CommerceQuery = new CommerceQuery(eCommerce,ec);
+                return commerceQuery
               })
             }
             else {
-              return {
+              return new CommerceQuery({
                 shopName: '',
                 shopLogoURL: '',
                 productName: '',
                 lowestPrice: 0,
                 photoURL: '',
                 href: '',
+              },ec)
+            }
+          })).then((data)=>{
+            const sortedData:CommerceQuery[] = data.sort((n1,n2) =>{
+              if(n1.eCommerce.lowestPrice > n2.eCommerce.lowestPrice) {
+                return 1;
+              }
+              if(n1.eCommerce.lowestPrice > n2.eCommerce.lowestPrice ) {
+                return -1;
+              }
+              return 0
+            });
+            let lowestValue = sortedData[0];
+            if(isNaN(sortedData[0].eCommerce.lowestPrice)) {
+              for(const x of sortedData) {
+                if (!isNaN(x.eCommerce.lowestPrice)){
+                  lowestValue = x;
+                  break;
+                }
               }
             }
-          }))
+
+            lowestValue.reference.ref.parent.parent?.collection('History').withConverter(historyConverter).add(new History(lowestValue.eCommerce.lowestPrice, admin.firestore.Timestamp.now().seconds)).then((historyQue)=>{
+              console.log("update history")
+              return historyQue.parent.where('date','<',time-86000).withConverter(historyConverter).get().then((referenceHistory)=> {
+                referenceHistory.forEach(historyRef => {
+                  return historyRef.ref.delete().then(()=>console.log("succesfully delete old history")).catch((eror)=>console.log(eror));
+                });
+              }).catch((error)=>{console.log(error)})
+              
+            }).catch((error) => {
+              console.log(error)
+            });
+          })
         })
       }))
     }),
@@ -176,7 +234,6 @@ export const updateProducts = functions.runWith({memory:'2GB'}).https.onRequest(
 
 export const updateProductCron = functions.runWith({memory:'2GB'}).pubsub.schedule('every 1 minutes').onRun((context) => {
   const time = admin.firestore.Timestamp.now().seconds-600;
-
   return Promise.all([
     admin.firestore().collection('product').where('date','<',time).limit(2).withConverter(productConverter).get().then((querySnapshot)=>{
       let array:FirebaseFirestore.QueryDocumentSnapshot<Product>[] =[] 
@@ -201,7 +258,8 @@ export const updateProductCron = functions.runWith({memory:'2GB'}).pubsub.schedu
                 ec.ref.set(eCommerce).then(()=>{
                   console.log("Updated eCommerce")
                 }).catch((error)=>{ console.log(error)})
-                return eCommerce
+                const commerceQuery:CommerceQuery = new CommerceQuery(eCommerce,ec);
+                return commerceQuery
               })
             }
             else if (eco.shopName === 'Amazon') {
@@ -209,20 +267,52 @@ export const updateProductCron = functions.runWith({memory:'2GB'}).pubsub.schedu
                 ec.ref.set(eCommerce).then(()=>{
                   console.log("Updated eCommerce")
                 }).catch((error)=>{ console.log(error)})
-                return eCommerce
+                const commerceQuery:CommerceQuery = new CommerceQuery(eCommerce,ec);
+                return commerceQuery
               })
             }
             else {
-              return {
+              return new CommerceQuery({
                 shopName: '',
                 shopLogoURL: '',
                 productName: '',
                 lowestPrice: 0,
                 photoURL: '',
                 href: '',
+              },ec)
+            }
+          })).then((data)=>{
+            const sortedData:CommerceQuery[] = data.sort((n1,n2) =>{
+              if(n1.eCommerce.lowestPrice > n2.eCommerce.lowestPrice) {
+                return 1;
+              }
+              if(n1.eCommerce.lowestPrice > n2.eCommerce.lowestPrice ) {
+                return -1;
+              }
+              return 0
+            });
+            let lowestValue = sortedData[0];
+            if(isNaN(sortedData[0].eCommerce.lowestPrice)) {
+              for(const x of sortedData) {
+                if (!isNaN(x.eCommerce.lowestPrice)){
+                  lowestValue = x;
+                  break;
+                }
               }
             }
-          }))
+
+            lowestValue.reference.ref.parent.parent?.collection('History').withConverter(historyConverter).add(new History(lowestValue.eCommerce.lowestPrice, admin.firestore.Timestamp.now().seconds)).then((historyQue)=>{
+              console.log("update history")
+              return historyQue.parent.where('date','<',time-86000).withConverter(historyConverter).get().then((referenceHistory)=> {
+                referenceHistory.forEach(historyRef => {
+                  return historyRef.ref.delete().then(()=>console.log("succesfully delete old history")).catch((eror)=>console.log(eror));
+                });
+              }).catch((error)=>{console.log(error)})
+              
+            }).catch((error) => {
+              console.log(error)
+            });
+          })
         })
       }))
     }),
@@ -234,7 +324,9 @@ export const updateProductCron = functions.runWith({memory:'2GB'}).pubsub.schedu
   });
 })
 
-
+// exports.onUpdateEcommerce = functions.firestore.document('product/{productId}/History/{HistoryId}').onUpdate((change, context) => {
+//   console.log(change.after.data())
+// })
 
 async function getSenukaiProduct(searchString:string,href:any):Promise<ECommerce> {
   const browser:puppeteer.Browser = await puppeteer.launch({headless: true, args: [ '--no-sandbox', '--disable-setuid-sandbox']});
