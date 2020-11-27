@@ -1,53 +1,52 @@
 import React from 'react';
-import {
-  Text,
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-} from 'react-native';
+import { StyleSheet, View, SafeAreaView, StatusBar } from 'react-native';
+import algoliasearch from 'algoliasearch';
+import { InstantSearch } from 'react-instantsearch-native';
+import SearchBox from '../SearchBox';
+import InfiniteHits from '../InfiniteHits';
 
-interface Props {
-    navigation: any;
-  }
-  export type AppState = {
-    user: any;
-    initializing: boolean;
-  };
+const searchClient = algoliasearch(
+  'FAGJI8FK54',
+  'd99eaa4522c1f0c40c66103290c40318'
+);
 
-export default class Home extends React.Component<Props> {
-  state: AppState = {
-      user: null,
-      initializing: true,
-  };
-  componentDidMount = () => {
+
+
+class Home extends React.Component {
+  root = {
+    Root: View,
+    props: {
+      style: {
+        flex: 1,
+      },
+    },
   };
 
   render() {
-    if (this.state.initializing) {
     return (
-        <SafeAreaView style={{backgroundColor: 'red'}}>
-        <View />
-        </SafeAreaView>
+      <SafeAreaView style={styles.safe}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.container}>
+          <InstantSearch
+            searchClient={searchClient}
+            indexName="product"
+          >
+            <SearchBox />
+            <InfiniteHits />
+          </InstantSearch>
+        </View>
+      </SafeAreaView>
     );
-    }
   }
-  }
+}
 const styles = StyleSheet.create({
+  safe: {
+    flex: 1,
+    backgroundColor: 'grey',
+  },
   container: {
-      flex: 1,
-  },
-  layout: {
-    flex: 2,
-    alignContent: 'center',
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  button: {
-    alignItems: 'center',
-    backgroundColor: '#DDDDDD',
-    padding: 10,
-    width: 300,
-    marginTop: 16,
+    flex: 1,
+    backgroundColor: 'white',
   },
 });
+export default Home;

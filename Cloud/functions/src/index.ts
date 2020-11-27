@@ -1,13 +1,24 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-
 import * as puppeteer from 'puppeteer';
 const serviceAccount = require("../ServiceKeyAccount.json");
+const algoliasearch = require('algoliasearch')
+// Initialize Algolia, requires installing Algolia dependencies:
+// https://www.algolia.com/doc/api-client/javascript/getting-started/#install
+//
+// App ID and API Key are stored in functions config variables
+const ALGOLIA_ID = functions.config().algolia.app;
+const ALGOLIA_ADMIN_KEY = functions.config().algolia.key;
+
+const client = algoliasearch(ALGOLIA_ID, ALGOLIA_ADMIN_KEY);
+
+const index = client.initIndex('product');
 
 class Product {
   name: string;
   photoURL: string;
   date: number;
+  
   constructor (name:string,photoURL:string, date:number) {
     this.name = name;
     this.photoURL = photoURL
@@ -48,7 +59,6 @@ const historyConverter = {
       return new History(data.lowestPrice, data.date);
   },
 }
-
  
 class CommerceQuery {
   eCommerce: ECommerce;
@@ -93,14 +103,27 @@ const eCommerceConverter = {
   },
 }
 
-
-
 admin.initializeApp({
  credential: admin.credential.cert(serviceAccount),
+
 });
 
+exports.addToIndex = functions.firestore.document('product/{productId}').onCreate((snapshot)=>{
+  const data = snapshot.data();
+  const objectID = snapshot.id;
+  return index.saveObject({ ...data, objectID});
+})
+
+exports.updateToIndex = functions.firestore.document('product/{productId}').onUpdate((snapshot)=>{
+  const data = snapshot.after.data();
+  const objectID = snapshot.after.id;
+  return index.saveObject({ ...data, objectID});
+})
+
+exports.deleteFromIndex = functions.firestore.document('product/{productId}').onDelete((snapshot)=>index.deleteObject(snapshot.id))
+
 export const checkPrice = functions.runWith({memory:'2GB'}).https.onRequest(async (request, response) => {
-  const boolean:Boolean = await getSenukaiProduct("Intel Core i5-10600K",'').then((eCommerce:ECommerce) => {
+  const boolean:Boolean = await getSenukaiProduct("Ausinės Sony WH-1000XM3 Black, belaidės",'').then((eCommerce:ECommerce) => {
     const product:Product = {name: eCommerce.productName, photoURL:eCommerce.photoURL, date:admin.firestore.Timestamp.now().seconds }
     if(eCommerce.href !== '') {
       return admin.firestore().collection('product').add(product).then((doc) => {
