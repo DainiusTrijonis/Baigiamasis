@@ -324,9 +324,7 @@ export const updateProductCron = functions.runWith({memory:'2GB'}).pubsub.schedu
   });
 })
 
-// exports.onUpdateEcommerce = functions.firestore.document('product/{productId}/History/{HistoryId}').onUpdate((change, context) => {
-//   console.log(change.after.data())
-// })
+
 
 async function getSenukaiProduct(searchString:string,href:any):Promise<ECommerce> {
   const browser:puppeteer.Browser = await puppeteer.launch({headless: true, args: [ '--no-sandbox', '--disable-setuid-sandbox']});
