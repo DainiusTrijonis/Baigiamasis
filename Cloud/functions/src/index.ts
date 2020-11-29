@@ -123,7 +123,7 @@ exports.updateToIndex = functions.firestore.document('product/{productId}').onUp
 exports.deleteFromIndex = functions.firestore.document('product/{productId}').onDelete((snapshot)=>index.deleteObject(snapshot.id))
 
 export const checkPrice = functions.runWith({memory:'2GB'}).https.onRequest(async (request, response) => {
-  const boolean:Boolean = await getSenukaiProduct("Ausinės Sony WH-1000XM3 Black, belaidės",'').then((eCommerce:ECommerce) => {
+  const boolean:Boolean = await getSenukaiProduct("iphone xr 64gb",'').then((eCommerce:ECommerce) => {
     const product:Product = {name: eCommerce.productName, photoURL:eCommerce.photoURL, date:admin.firestore.Timestamp.now().seconds }
     if(eCommerce.href !== '') {
       return admin.firestore().collection('product').add(product).then((doc) => {
@@ -507,4 +507,105 @@ async function getAmazonProduct(searchString:string,href:any):Promise<ECommerce>
     browser.close().then(()=>console.log("succesfuly closed browser")).catch((error)=>{console.log(error)});
     return amazonProduct
   }
+}
+
+
+export const searchECommerce = functions.runWith({memory:'2GB'}).https.onRequest(async (request,response) => {
+  const searchString = "sony xm3"
+  const browser:puppeteer.Browser = await puppeteer.launch({headless: true, args: [ '--no-sandbox', '--disable-setuid-sandbox']});
+
+  Promise.all([
+    await getArrayECommerceOnSearchSenukai(searchString,await browser.newPage())
+  ]).then((data)=>{
+    response.send(data);
+  }).catch((error) => {
+    console.log(error)
+  }).finally(()=>{
+    browser.close();
+  })
+
+
+})
+
+async function getArrayECommerceOnSearchSenukai(searchString:string,page:puppeteer.Page):Promise<ECommerce[]>{
+  
+  const [response] = await Promise.all([
+    page.waitForNavigation({
+      waitUntil: 'networkidle0',
+    }),
+    await page.goto('https://www.senukai.lt/paieska/?q='),
+    await Promise.all([
+      await page.type('input#q.sn-suggest-input.autocomplete.main-search-input', searchString),
+      page.waitForNavigation({
+        waitUntil: 'networkidle0',
+      }),
+      await page.click('button.main-search-submit'),
+    ])
+  ])
+  const ryzas:ECommerce[] = await Promise.all([
+    response,
+    await page.$$eval(".mobile-menu-title span", (elms) => {return elms.map(elm => elm.innerHTML)}),
+  ]).then(async (data)=>{
+    if(data[1][1]) {
+      const resultText = data[1][1].replace('(','').replace(')','');
+      const resultINT = parseInt(resultText);
+      if(resultINT>0) {
+        //return answers 
+        const productSection = await page.$(".product-grid-row")
+        const products  = await productSection?.$$(" .new-product-hover");
+        if(products) {
+          const promiseECommerceMap:ECommerce[] = await Promise.all(products.map(async (product)=>{
+            const imgURL = await product.$eval(" .new-product-image img", (elm:Element) => elm.getAttribute('src'));
+            const href = await product.$eval(" a.new-product-name", (elm: Element) => elm.getAttribute('href'));
+            const name = await product.$eval(" a.new-product-name", (elm: Element) => elm.innerHTML);
+            let price = await product.$eval("   .item-price span", (elm: Element) => elm.textContent);
+            if(price && imgURL && href && name) {
+              price = price?.replace(",",".");
+              const priceFloat = parseFloat(price);
+              const eCommerce:ECommerce = new ECommerce(
+                "Senukai",
+                'https://www.senukai.lt/assets/schema/senukai_lt-f17959262e224d00a32be8c31cfca13315fc1a8f78bb91e4387a93042574f5a7.png',
+                name,
+                priceFloat,
+                imgURL,
+                "https://www.senukai.lt/"+href
+              )
+              return eCommerce;
+            }   
+            else {
+              return new ECommerce(
+                "Senukai",
+                'https://www.senukai.lt/assets/schema/senukai_lt-f17959262e224d00a32be8c31cfca13315fc1a8f78bb91e4387a93042574f5a7.png',
+                '',
+                0,
+                '',
+                ''
+              )
+            }
+          })).then((data)=>{
+            return data
+          })
+          return promiseECommerceMap
+
+        }
+        else {
+          return new Array<ECommerce>();
+        }
+      }
+      else {
+        return new Array<ECommerce>();
+      }
+    }
+    else {
+      return new Array<ECommerce>();
+      //return empty
+    }
+  }).catch((error) => {
+    console.log(error);
+    return new Array<ECommerce>();
+  })
+
+  return ryzas
+
+
 }

@@ -10,9 +10,15 @@ const searchClient = algoliasearch(
   'd99eaa4522c1f0c40c66103290c40318'
 );
 
+interface Props {
+  navigation: any,
+}
+export type AppState = {
+  initializing: boolean;
+  interval: number;
+};
 
-
-class Home extends React.Component {
+class Home extends React.Component<Props> {
   root = {
     Root: View,
     props: {
@@ -21,6 +27,13 @@ class Home extends React.Component {
       },
     },
   };
+  state: AppState = {
+    initializing: true,
+    interval: 2000,
+  };
+  componentDidMount() {
+
+  }
 
   render() {
     return (
@@ -30,10 +43,12 @@ class Home extends React.Component {
           <InstantSearch
             searchClient={searchClient}
             indexName="product"
+            
           >
             <SearchBox />
-            <InfiniteHits />
+            <InfiniteHits navigation = {this.props.navigation} />
           </InstantSearch>
+          
         </View>
       </SafeAreaView>
     );
@@ -42,7 +57,7 @@ class Home extends React.Component {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: 'grey',
+    backgroundColor: 'black',
   },
   container: {
     flex: 1,

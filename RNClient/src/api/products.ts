@@ -1,7 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import auth  from '@react-native-firebase/auth'
 import functions from '@react-native-firebase/functions'
-
+import firebase from '@react-native-firebase/app'
 export class Product {
     name: string;
     photoURL: string;
@@ -93,10 +93,21 @@ const eCommerceConverter = {
 }
 
 export type ApiClient = {
+  getProductRealtime(callback:any, productId:string): void
 }
 
 export const createApiClient = (): ApiClient => {
   return {
+    getProductRealtime: (callback,id) => {
+      firestore().collection('product').doc(id).onSnapshot((snap) => {
+        const snapshot = snap.data();
+        if(snapshot) {
+          const product:Product = new Product(snapshot.name,snapshot.photoURL,parseFloat(snapshot.date))
+          callback(product);
+        }
+      })
+    }
+
 
   }
 }
