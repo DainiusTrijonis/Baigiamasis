@@ -618,3 +618,44 @@ async function getArrayECommerceOnSearchSenukai(searchString:string,page:puppete
 
 
 }
+
+async function getArrayECommerceOnSearchAmazon((searchString:string,page:puppeteer.Page):Promise<ECommerce[]> {
+  
+  const [response] = await Promise.all([
+    await page.goto('https://www.amazon.de/?currency=EUR&language=en_GB'),
+    await page.type('#twotabsearchtextbox', searchString),
+    await Promise.all([
+      page.waitForNavigation({
+        waitUntil: 'networkidle0',
+      }),
+      await page.click(".nav-search-submit-text"),
+    ]),
+  ]);
+  
+  const eCommerces = await Promise.all([
+    response,
+    await page.$$('.s-include-content-margin').then((data) =>{
+      for(let i=0; i<data.length; i++) {
+        const isntvalid = await data[i].$$('.a-declarative .a-color-secondary');
+    
+        if(isntvalid.length > 0) {
+          data.splice(i,1)
+          i--;
+        }
+        else {
+          break;
+        }
+      }
+      Promise.all(data.map((elm) => {
+        let href = await elm.$eval('.s-no-outline',  (elm: Element) => elm.getAttribute('href'));
+        href = "https://www.amazon.de/"+href;
+
+        console.log(href);
+      }))
+      
+    })
+  ])
+
+  return eCommerces;
+
+})
