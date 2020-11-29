@@ -7,7 +7,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
-import {createApiClient,Product} from '../api/products'
+import {createApiClient,Product, ECommerce} from '../api/products'
 
 
 export type AppState = {

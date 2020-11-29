@@ -18,11 +18,16 @@ class Product {
   name: string;
   photoURL: string;
   date: number;
-  
-  constructor (name:string,photoURL:string, date:number) {
+  lowestPrice:number;
+  highestPrice:number;
+  createdAt: number
+  constructor (name:string,photoURL:string, date:number, lowestPrice:number, highestPrice:number, createdAt:number) {
     this.name = name;
     this.photoURL = photoURL
     this.date = date;
+    this.lowestPrice = lowestPrice;
+    this.highestPrice = highestPrice;
+    this.createdAt = createdAt;
   }
 }
 const productConverter = {
@@ -31,11 +36,14 @@ const productConverter = {
         name: product.name,
         photoURL: product.photoURL,
         date: product.date,
+        lowestPrice: product.lowestPrice,
+        highestPrice: product.highestPrice,
+        createdAt: product.createdAt,
       }
   },
   fromFirestore: function(snapshot:FirebaseFirestore.QueryDocumentSnapshot){
       const data = snapshot.data();
-      return new Product(data.name, data.photoURL, data.date);
+      return new Product(data.name, data.photoURL, data.date, data.lowestPrice, data.highestPrice, data.createdAt);
   },
 }
 
@@ -121,6 +129,7 @@ exports.updateToIndex = functions.firestore.document('product/{productId}').onUp
 })
 
 exports.deleteFromIndex = functions.firestore.document('product/{productId}').onDelete((snapshot)=>index.deleteObject(snapshot.id))
+
 
 export const checkPrice = functions.runWith({memory:'2GB'}).https.onRequest(async (request, response) => {
   const boolean:Boolean = await getSenukaiProduct("iphone xr 64gb",'').then((eCommerce:ECommerce) => {

@@ -94,6 +94,7 @@ const eCommerceConverter = {
 
 export type ApiClient = {
   getProductRealtime(callback:any, productId:string): void
+  getWishListRealtime(callback:any,uid:string): void
 }
 
 export const createApiClient = (): ApiClient => {
@@ -106,7 +107,19 @@ export const createApiClient = (): ApiClient => {
           callback(product);
         }
       })
-    }
+    },
+    getWishListRealtime: (callback, uid) => {
+      firestore().collection('WishList').doc(uid).onSnapshot((snap) => {
+        const snapshot = snap.data();
+        let eCommerceArray: ECommerce[] = new Array<ECommerce>();
+        if(snapshot)
+        snapshot.forEach((element:any) => {
+          const eCommerce:ECommerce = element.data();
+          eCommerceArray.push(eCommerce);
+        });
+        callback(eCommerceArray);
+      })
+    },
 
 
   }
