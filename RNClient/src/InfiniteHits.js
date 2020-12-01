@@ -1,10 +1,8 @@
-import React from 'react';
+import React, {useEffect,useState} from 'react';
 import { StyleSheet, Text, View, FlatList,Image } from 'react-native';
 import PropTypes from 'prop-types';
 import { connectInfiniteHits } from 'react-instantsearch-native';
-import {Product} from '../src/api/products'
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import { NavigationContainer } from '@react-navigation/native';
 const styles = StyleSheet.create({
   separator: {
     borderBottomWidth: 1,
@@ -23,13 +21,15 @@ const styles = StyleSheet.create({
 });
 
 
-const InfiniteHits = ({ hits, hasMore, refine, navigation }) => (
-  
+
+const InfiniteHits = ({ hits, hasMore, refine, navigation, time }) => (
+
   <FlatList
     data={hits}
     keyExtractor={(item) => item.objectID}
     ItemSeparatorComponent={() => <View style={styles.separator} />}
     onEndReached={() => hasMore && refine()}
+    
     renderItem={({ item }) => (
       <TouchableOpacity style={styles.item}   onPress={() => { navigation.navigate('Product', {
         'product':item,
@@ -39,8 +39,17 @@ const InfiniteHits = ({ hits, hasMore, refine, navigation }) => (
             style={{width: '30%', height: 100,resizeMode : 'stretch' }}
             source={{uri: item.photoURL}} 
           />
+          <View style={{flexDirection:'column',flexShrink: 1}}>
+            <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold'}}>{item.name}</Text>
+            <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold'}}>{((time.getTime()/1000 -parseFloat(item.date) )/ 60 ).valueOf().toFixed(1).toString() + " minutes ago"}</Text>
+            <View style ={{ paddingLeft:20, flexDirection:'row',flexShrink: 1 }}>
+              <Text style={{color:'#AB2D2D'}}>{item.lowestPrice+ " €"}</Text>
+              <Text>{" - "}</Text>
+              <Text style={{color:'#AB2D2D'}}>{item.highestPrice+ " €"}</Text>
+            </View>
+          </View>
+
           
-          <Text style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold'}}>{item.name}</Text>
         </View>
       </TouchableOpacity>
     )}

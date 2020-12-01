@@ -67,7 +67,7 @@ export default class Login extends React.Component<Props> {
             <View style={styles.container}>
                 <View style={styles.form}>
                     <View style={{ marginTop: 5, alignContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ color: 'Black' }}>
+                        <Text style={{ color: 'black' }}>
                             {this.state.errorMsg}
                         </Text>
                     </View>
@@ -115,7 +115,7 @@ export default class Login extends React.Component<Props> {
                     </View>
 
                     <TouchableOpacity onPress={() => this.props.navigation.navigate('Register')} style={{ marginTop: 5, alignContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ color: 'Black' }}>
+                        <Text style={{ color: 'black' }}>
                             Register
                     </Text>
                     </TouchableOpacity>

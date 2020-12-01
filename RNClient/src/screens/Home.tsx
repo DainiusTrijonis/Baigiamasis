@@ -16,11 +16,14 @@ interface Props {
 export type AppState = {
   initializing: boolean;
   interval: number;
+  time:Date
 };
+let unsubscribe:any;
 
 class Home extends React.Component<Props> {
   root = {
     Root: View,
+
     props: {
       style: {
         flex: 1,
@@ -29,24 +32,33 @@ class Home extends React.Component<Props> {
   };
   state: AppState = {
     initializing: true,
-    interval: 2000,
+    time: new Date(),
+    interval: 60000,
   };
   componentDidMount() {
-
+    unsubscribe = setInterval(() => {
+      this.setState({
+        time : new Date()
+      })
+    }, 10000)
   }
-
+  componentWillUnmount() {
+    unsubscribe
+  }
   render() {
     return (
       <SafeAreaView style={styles.safe}>
         <StatusBar barStyle="light-content" />
         <View style={styles.container}>
           <InstantSearch
+            refresh={true}
             searchClient={searchClient}
             indexName="product"
             
           >
             <SearchBox />
-            <InfiniteHits navigation = {this.props.navigation} />
+
+            <InfiniteHits navigation = {this.props.navigation} time = {this.state.time}/>
           </InstantSearch>
           
         </View>

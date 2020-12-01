@@ -26,8 +26,10 @@ export default class WishList extends React.Component<Props> {
   render() {
     if (this.state.initializing) {
     return (
-        <SafeAreaView style={{backgroundColor: 'black'}}>
-        <View />
+        <SafeAreaView>
+          <View>
+            
+          </View>
         </SafeAreaView>
     );
     }

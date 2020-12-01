@@ -6,12 +6,13 @@ import WishListScreen from '..//WishList'
 import ProfileScreen from '../Profile'
 import LoginScreen from '../Authentication/Login'
 import RegisterScreen from '../Authentication/Register'
-import ProductScreen from '../Product'
+import ProductScreen from '../ProductScreen'
 const screenOptionStyle = {
     headerStyle: {
       backgroundColor: "#9AC4F8",
     },
     headerTintColor: "white",
+    cardStyle: { backgroundColor: '#FFFFFF' },
     headerBackTitle: "Back",
   };
   
@@ -19,7 +20,7 @@ const screenOptionStyle = {
     return (
       <Stack.Navigator screenOptions={screenOptionStyle}>
         <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Product" component={ProductScreen} />
+        <Stack.Screen name="Product" component={ProductScreen}  />
       </Stack.Navigator>
     );
   }

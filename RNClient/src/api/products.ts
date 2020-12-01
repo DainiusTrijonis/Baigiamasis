@@ -1,30 +1,23 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
-import auth  from '@react-native-firebase/auth'
+import auth, { FirebaseAuthTypes }  from '@react-native-firebase/auth'
 import functions from '@react-native-firebase/functions'
 import firebase from '@react-native-firebase/app'
+import Ionicons from 'react-native-vector-icons/Ionicons';
 export class Product {
-    name: string;
-    photoURL: string;
-    date: number;
-    
-    constructor (name:string,photoURL:string, date:number) {
-      this.name = name;
-      this.photoURL = photoURL
-      this.date = date;
-    }
+  name: string;
+  photoURL: string;
+  date: number;
+  lowestPrice:number;
+  highestPrice:number;
+  createdAt: number
+  constructor (name:string,photoURL:string, date:number, lowestPrice:number, highestPrice:number, createdAt:number) {
+    this.name = name;
+    this.photoURL = photoURL
+    this.date = date;
+    this.lowestPrice = lowestPrice;
+    this.highestPrice = highestPrice;
+    this.createdAt = createdAt;
   }
-  const productConverter = {
-    toFirestore: function(product:Product) {
-        return {
-          name: product.name,
-          photoURL: product.photoURL,
-          date: product.date,
-        }
-    },
-    fromFirestore: function(snapshot:FirebaseFirestoreTypes.QueryDocumentSnapshot){
-        const data = snapshot.data();
-        return new Product(data.name, data.photoURL, data.date);
-    },
 }
   
 export class History {
@@ -33,28 +26,6 @@ export class History {
     constructor (lowestPrice:number, date:number) {
         this.lowestPrice = lowestPrice;
         this.date = date;
-    }
-    }
-    const historyConverter = {
-    toFirestore: function(history:History) {
-        return {
-            lowestPrice: history.lowestPrice,
-            date: history.date,
-        }
-    },
-    fromFirestore: function(snapshot:FirebaseFirestoreTypes.QueryDocumentSnapshot){
-        const data = snapshot.data();
-        return new History(data.lowestPrice, data.date);
-    },
-}
-  
-   
-class CommerceQuery {
-    eCommerce: ECommerce;
-    reference: FirebaseFirestoreTypes.QueryDocumentSnapshot<ECommerce>
-    constructor (eCommerce:ECommerce, reference:FirebaseFirestoreTypes.QueryDocumentSnapshot<ECommerce>) {
-        this.eCommerce = eCommerce;
-        this.reference = reference;
     }
 }
   
@@ -74,27 +45,28 @@ export class ECommerce {
       this.href = href;
   }
 }
-  
-const eCommerceConverter = {
-  toFirestore: function(eCommerce:ECommerce) {
-      return {
-        shopName: eCommerce.shopName,
-        shopLogoURL: eCommerce.shopLogoURL,
-        productName: eCommerce.productName,
-        lowestPrice: eCommerce.lowestPrice,
-        photoURL: eCommerce.photoURL,
-        href: eCommerce.href,
-      }
-  },
-  fromFirestore: function(snapshot:FirebaseFirestoreTypes.QueryDocumentSnapshot){
-      const data = snapshot.data();
-      return new ECommerce(data.shopName, data.shopLogoURL, data.productName, data.lowestPrice, data.photoURL, data.href);
-  },
+
+export class Review {
+  stars: number;
+  ownerEmail: string;
+  comment: string;
+  date: FirebaseFirestoreTypes.Timestamp;
+  constructor(stars:number,ownerEmail:string,comment:string,date:FirebaseFirestoreTypes.Timestamp) {
+    this.stars = stars;
+    this.ownerEmail = ownerEmail;
+    this.comment = comment;
+    this.date = date;
+  }
+
 }
 
 export type ApiClient = {
   getProductRealtime(callback:any, productId:string): void
+  getECommerceRealtime(callback:any, productId: string):void
+  getHistoryRealtime(callback:any, productId:string):void
+  getReviewsRealTime(callback:any, productId:string):void
   getWishListRealtime(callback:any,uid:string): void
+  sendReview(message:string, stars:number, productId:string):void
 }
 
 export const createApiClient = (): ApiClient => {
@@ -103,11 +75,75 @@ export const createApiClient = (): ApiClient => {
       firestore().collection('product').doc(id).onSnapshot((snap) => {
         const snapshot = snap.data();
         if(snapshot) {
-          const product:Product = new Product(snapshot.name,snapshot.photoURL,parseFloat(snapshot.date))
+          const product:Product = new Product(snapshot.name,snapshot.photoURL,parseFloat(snapshot.date),parseFloat(snapshot.lowestPrice),parseFloat(snapshot.highestPrice),parseFloat(snapshot.createdAt) )
           callback(product);
         }
       })
     },
+    getECommerceRealtime: (callback,id) => {
+      firestore().collection('product').doc(id).collection('ECommerce').orderBy('lowestPrice','asc').onSnapshot((snap) => {
+        let eCommerceArray = new Array<ECommerce>();
+        snap.forEach(element => {
+          const eCommerce:ECommerce = new ECommerce(element.data().shopName, element.data().shopLogoURL, element.data().productName, element.data().lowestPrice, element.data().photoURL, element.data().href);
+          eCommerceArray.push(eCommerce)
+        });
+        
+        callback(eCommerceArray);
+      })
+    },
+    getHistoryRealtime:(callback,id) => {
+      firestore().collection('product').doc(id).collection('history').orderBy('date','asc').onSnapshot((snap) => {
+        let historyArray = new Array<History>();
+        snap.forEach(element => {
+          const history:History = new History(element.data().lowestPrice,element.data().date);
+          historyArray.push(history)
+        });
+        callback(historyArray);
+      })
+    },
+    getReviewsRealTime:(callback,id) => {
+      firestore().collection('product').doc(id).collection('reviews').orderBy('date','asc').onSnapshot((snap) => {
+        let reviewArray = new Array<Review>();
+        snap.forEach(element => {
+          const review:Review = new Review(element.data().stars,element.data().ownerEmail,element.data().comment,element.data().date);
+          reviewArray.push(review)
+        });
+        callback(reviewArray);
+      })
+    },
+    sendReview:async (message,stars,productId) => {
+      const user = auth().currentUser;
+      if(user) {
+        const x = auth().currentUser?.getIdToken(true).then((idToken)=>{
+          if(idToken) {
+            if(message!= '') {
+              const data: { [key: string]: any} = {idToken, message,stars, productId }
+              return  functions().httpsCallable('addReview')(data).then(response =>{
+                console.log(response.data())
+                return true;
+              }).catch((error) => {
+                  console.log(error);
+                  return false;
+              });
+            } else {
+              return false;
+            }
+          } else {
+            return false;
+          }
+        }).catch((error) => {
+          console.log(error)
+          return false;
+        })
+        return x;
+      }else {
+        return false;
+      }
+
+      
+    },
+    
+
     getWishListRealtime: (callback, uid) => {
       firestore().collection('WishList').doc(uid).onSnapshot((snap) => {
         const snapshot = snap.data();
@@ -120,7 +156,5 @@ export const createApiClient = (): ApiClient => {
         callback(eCommerceArray);
       })
     },
-
-
   }
 }
