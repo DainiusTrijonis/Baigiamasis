@@ -11,6 +11,7 @@ import {
   Dimensions,
   ScrollView,
   RecyclerViewBackedScrollView,
+  Keyboard,
 } from 'react-native';
 import {createApiClient,Product, ECommerce, History, Review} from '../api/products'
 import {
@@ -19,7 +20,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Stars from 'react-native-stars';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth'
-import { TextInput } from 'react-native-gesture-handler';
+import { FlatList, TextInput } from 'react-native-gesture-handler';
 export type AppState = {
   product?: Product,
   eCommerceArray?: ECommerce[],
@@ -60,15 +61,6 @@ export default class ProductScreen extends React.Component<Props> {
     this.setState({
       product: product
     })
-    // this.props.navigation.setOptions({
-    //   headerLeft: () => (
-    //       <TouchableOpacity  style={{alignContent:'center',alignItems:'center', alignSelf:'center', marginBottom:8, marginRight:8}}>
-    //         <Ionicons name="arrow-back"
-    //             size={35} color="darkgray" 
-    //         />        
-    //       </TouchableOpacity>
-    //   )
-    // });
     unsubscribe6 = auth().onAuthStateChanged((user) => {
       if (user) {
         this.setState({
@@ -91,13 +83,16 @@ export default class ProductScreen extends React.Component<Props> {
         time : new Date()
       })
     }, 60000)
+
   };
+
   componentWillUnmount = () => {
-    unsubscribe;
-    unsubscribe2; 
-    unsubscribe3;
-    unsubscribe4;
-    unsubscribe6;
+    unsubscribe();
+    unsubscribe2(); 
+    clearInterval(unsubscribe3);
+    unsubscribe4();
+    unsubscribe5();
+    unsubscribe6();
   }
   onUpdateECommerceArray = (eCommerceArray:ECommerce[]) => {
     this.setState({
@@ -144,34 +139,35 @@ export default class ProductScreen extends React.Component<Props> {
   }
   renderECommerceArray = (eCommerceArray:ECommerce[]) => {
     return (
-      <ScrollView>
-        {eCommerceArray.map((eCommerce,index) => {
-          return(
-            <View key={index} style = {styles.item}>
-              <View style = {{ flexDirection:'row', alignItems:'center'}}>
-                <View style={{padding:10}}>                
-                  <Image
-                    style={{width: 60, height: 40,resizeMode : 'stretch' }}
-                    source = {{uri: eCommerce.shopLogoURL}}
-                  />
+      <View>
+        <FlatList
+          data = {eCommerceArray}
+          keyExtractor = {(item) => item.id}
+          renderItem={({ item }) => (
+            <View key={item.id} style = {styles.item}>
+            <View style = {{ flexDirection:'row', alignItems:'center'}}>
+              <View style={{padding:10}}>                
+                <Image
+                  style={{width: 60, height: 40,resizeMode : 'stretch' }}
+                  source = {{uri: item.shopLogoURL}}
+                />
+              </View>
+              <View  style={{ padding:5,flexShrink: 1 }}>
+                  <Text numberOfLines={2}>{item.productName}</Text>
+              </View>
+              <View style={{flexDirection:'column', alignItems:'center'}}>
+                <View style={{paddingBottom:3}}>
+                  <Text style={{color:'#AB2D2D', fontFamily:'sans-serif'}}>{item.lowestPrice!=0? item.lowestPrice + " €":"Out of stock"}</Text>
                 </View>
-
-                <View  style={{ padding:5,flexShrink: 1 }}>
-                    <Text numberOfLines={2}>{eCommerce.productName}</Text>
-                </View>
-                <View style={{flexDirection:'column', alignItems:'center'}}>
-                  <View style={{paddingBottom:3}}>
-                    <Text style={{color:'#AB2D2D', fontFamily:'sans-serif'}}>{eCommerce.lowestPrice!=0? eCommerce.lowestPrice + " €":"Out of stock"}</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => { this.goToHref(eCommerce.href)}} style={{backgroundColor:'green'}}>
-                    <Text> {"Go to shop"} </Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity onPress={() => { this.goToHref(item.href)}} style={{backgroundColor:'green'}}>
+                  <Text> {"Go to shop"} </Text>
+                </TouchableOpacity>
               </View>
             </View>
-          )
-        })}
-      </ScrollView>
+          </View>
+          )}
+        />
+      </View>
     )
   }
   renderHistory = (historyArray:History[]) => {
@@ -255,54 +251,58 @@ export default class ProductScreen extends React.Component<Props> {
     }
 
   }
-  renderReview = (reviewArray:Review[]) => {
+  renderReviewPage = (reviewArray:Review[]) => {
     return (
-      <View>
+      <View style ={{}}>
         <View style={{flexShrink: 1, padding:5, borderBottomWidth: 1, borderColor: '#ddd',}}>
           <Text numberOfLines={1} style={{ flexWrap: 'wrap',padding:5, fontWeight: 'bold', fontFamily:'sans-serif'}}> {"Reviews about - "+ this.state.product?.name} </Text>
         </View>
-        <ScrollView>
-          {reviewArray.map((review,index)=>{
-            return(
-              <View style={styles.item} key={index}>
-                <View style = {{ flexDirection:'row'}}>
-                  <View style ={{paddingRight:5,flexDirection:'column',alignItems:'center'}}>
-                    <Text style={{fontSize:9,fontWeight: 'bold', fontFamily:'sans-serif'}}>{review.ownerEmail}</Text>
-                    <Text style={{fontSize:8}}>{review.date.toDate().toDateString()+" " + review.date.toDate().toLocaleTimeString('lt-LT')}</Text>
-                    <View style={{alignItems:'center'}}>
-                      <Stars
-                        display={review.stars}
-                        spacing={8}
-                        count={5}
-                        starSize={40}
-                        fullStar={<Icon name={'star'} style={[styles.myStarStyle]}/>}
-                        emptyStar={<Icon name={'star-outline'} style={[styles.myStarStyle, styles.myEmptyStarStyle]}/>}
-                        halfStar={<Icon name={'star-half'} style={[styles.myStarStyle]}/>}
-                      />
-                    </View>
-                  </View>
-                  <View>
-                    <Text style={{fontSize:9}}>{review.comment}</Text>
+        {this.state.user? this.renderSendReview(): <View></View>}
+        <FlatList
+          data = {reviewArray}
+          keyExtractor = {(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.item}>
+              <View style = {{ flexDirection:'row'}}>
+                <View style ={{paddingRight:5,flexDirection:'column',alignItems:'center'}}>
+                  <Text style={{fontSize:9,fontWeight: 'bold', fontFamily:'sans-serif'}}>{item.ownerEmail}</Text>
+                  <Text style={{fontSize:8}}>{item.date.toDate().toDateString()+" " + item.date.toDate().toLocaleTimeString('lt-LT')}</Text>
+                  <View style={{alignItems:'center'}}>
+                    <Stars
+                      display={item.stars}
+                      spacing={8}
+                      count={5}
+                      starSize={40}
+                      fullStar={<Icon name={'star'} style={[styles.myStarStyle]}/>}
+                      emptyStar={<Icon name={'star-outline'} style={[styles.myStarStyle, styles.myEmptyStarStyle]}/>}
+                      halfStar={<Icon name={'star-half'} style={[styles.myStarStyle]}/>}
+                    />
                   </View>
                 </View>
+                <View>
+                  <Text style={{fontSize:9}}>{item.comment}</Text>
+                </View>
               </View>
-            )
-          })}
-        </ScrollView>
-        {this.state.user? this.renderSendReview(): <View></View>}
+            </View>
+          )}
+        />
       </View>
-
-
     )
   }
+  
+
+
   handleText = (text:string) => {
     this.setState({reviewText:text})
   }
   onPressSendReview = () => {
+    Keyboard.dismiss();
     if(this.state.reviewText!='') {
       api.sendReview(this.state.reviewText,this.state.reviewStars, this.props.route.params.product['objectID']);
       this.handleText("")
+
     }
+
   }
   renderSendReview = () => {
     return (
@@ -325,12 +325,15 @@ export default class ProductScreen extends React.Component<Props> {
         <View style={{padding:10,flexDirection:'column'}}>
           <Text style={{fontWeight: 'bold', fontFamily:'sans-serif'}} >comment, opinion</Text>
           <View style={{width:260, height:85, backgroundColor:'white', borderWidth:1,borderColor: '#ddd',}}>
-            <TextInput onChangeText = {this.handleText} value = {this.state.reviewText}  style={{fontSize:10}}  multiline={true}>
-
-            </TextInput>
+            <TextInput 
+              onChangeText = {this.handleText} 
+              value = {this.state.reviewText}  
+              style={{fontSize:10}} 
+              multiline={true}
+            />
           </View>
           <View style={{paddingTop:5,flexDirection:'row'}}>
-            <TouchableOpacity onPress = {this.onPressSendReview}  style={{backgroundColor:'#65a422',borderRadius:2, minWidth:90, alignItems:'center'}}>
+            <TouchableOpacity onPress = {this.onPressSendReview}   style={{backgroundColor:'#65a422',borderRadius:2, minWidth:90, alignItems:'center'}}>
               <Text style={{color:'white'}}>
                 Send review
               </Text>
@@ -365,7 +368,7 @@ export default class ProductScreen extends React.Component<Props> {
 
     } else if (reviewArray && this.state.whatToRender==="Reviews") {
       return (
-        this.renderReview(reviewArray)
+        this.renderReviewPage(reviewArray)
       )
     }
     else {
@@ -386,7 +389,7 @@ export default class ProductScreen extends React.Component<Props> {
     const {reviewArray} = this.state
     return (
       <SafeAreaView style={styles.container}>
-        <View style={{flexDirection:'column'}}>
+        <View style={{flexDirection:'column', flex:1}}>
           <View>
             {product ? this.renderProduct(product) : this.renderActivityIndicator()}
           </View>

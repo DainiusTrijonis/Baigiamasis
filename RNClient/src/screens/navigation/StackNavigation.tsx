@@ -7,6 +7,8 @@ import ProfileScreen from '../Profile'
 import LoginScreen from '../Authentication/Login'
 import RegisterScreen from '../Authentication/Register'
 import ProductScreen from '../ProductScreen'
+import AddProductScreen from '../AddProduct'
+
 const screenOptionStyle = {
     headerStyle: {
       backgroundColor: "#9AC4F8",
@@ -29,6 +31,8 @@ const screenOptionStyle = {
     return (
       <Stack.Navigator screenOptions={screenOptionStyle}>
         <Stack.Screen name="WishList" component={WishListScreen} />
+        <Stack.Screen name="AddProduct" component={AddProductScreen} />
+
       </Stack.Navigator>
     );
   }

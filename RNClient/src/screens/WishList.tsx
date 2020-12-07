@@ -5,34 +5,93 @@ import {
   StyleSheet,
   TouchableOpacity,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
-
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth'
+import {createApiClient,Product} from '../api/products'
+const api = createApiClient();
+let unsubscribe:any;
+let unsubscribe2:any;
 interface Props {
     navigation: any;
   }
   export type AppState = {
     user: any;
     initializing: boolean;
+    dialogVisible: boolean;
   };
 
 export default class WishList extends React.Component<Props> {
   state: AppState = {
       user: null,
       initializing: true,
+      dialogVisible: false,
   };
+  
   componentDidMount = () => {
-  };
+    auth().onAuthStateChanged((user) => {
+      if (user) {
+        this.props.navigation.setOptions({
+          headerRight: () => (
+            <TouchableOpacity onPress={this.onClickAddProduct}>
+              <Ionicons name="ios-add-circle"
+                  size={45} color="gray" 
+              />
+            </TouchableOpacity>
+          )
+        });
 
+        this.setState({
+          user: user,
+          initializing: false,
+        });
+
+      } 
+      else {
+        this.setState({
+          initializing: false,
+        });
+        this.props.navigation.navigate("Profile")
+      }
+    })
+
+
+  };
+  componentWillUnmount = () => {
+
+  }
+
+  onClickAddProduct = () => {
+    this.props.navigation.navigate("AddProduct")
+  }
+
+  renderActivityIndicator = () => {
+    return (
+      <View style={styles.layout}>
+        <ActivityIndicator size='large'/>
+      </View>
+    )
+  }
   render() {
     if (this.state.initializing) {
     return (
-        <SafeAreaView>
+       <SafeAreaView style={styles.container}>
           <View>
-            
+            {this.renderActivityIndicator()}
           </View>
         </SafeAreaView>
     );
+    } else {
+      return (
+        <SafeAreaView style={styles.container}>
+          <View>
+            
+          </View>
+       </SafeAreaView>
+      )
     }
+
   }
   }
 const styles = StyleSheet.create({

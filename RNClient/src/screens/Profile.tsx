@@ -43,7 +43,7 @@ export default class Profile extends React.Component<Props> {
     console.log(this.state.user);
   };
   componentWillUnmount = () => {
-    unsubscribe;
+    unsubscribe();
   }
   
   logOut() {

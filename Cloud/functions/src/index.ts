@@ -646,19 +646,20 @@ async function getAmazonProduct(searchString:string,href:any):Promise<ECommerce>
 }
 
 
-exports.getProducts = functions.runWith({memory:'2GB'}).https.onCall(async (searchString:string) => {
+exports.getProducts = functions.runWith({memory:'2GB'}).https.onCall(async (data) => {
   const browser:puppeteer.Browser = await puppeteer.launch({headless: true, args: [ '--no-sandbox', '--disable-setuid-sandbox']});
-  Promise.all([
-    await getArrayECommerceOnSearchSenukai(searchString,await browser.newPage()),
-    await getArrayECommerceOnSearchAmazon(searchString,await browser.newPage()),
-  ]).then((data)=>{
+  const x = await Promise.all([
+    await getArrayECommerceOnSearchSenukai(data['keyword'],await browser.newPage()),
+    await getArrayECommerceOnSearchAmazon(data['keyword'],await browser.newPage()),
+  ]).then((eCommerces)=>{
     browser.close().catch((err)=>{console.log(err)});
-    return(data);
+    return(eCommerces);
   }).catch((error) => {
     console.log(error)
     browser.close().catch((err)=>{console.log(err)});
-    return []
+    return [[]]
   })
+  return x;
 })
 
 
@@ -786,7 +787,6 @@ async function getArrayECommerceOnSearchAmazon(searchString:string,page:puppetee
       const x:ECommerce[] = await Promise.all(data.map(async (productElm) => {
         let href = await productElm.$eval('.s-no-outline',  (elm: Element) => elm.getAttribute('href'));
         href = "https://www.amazon.de/"+href;
-        console.log(href);
         let imageURL = await productElm.$eval('.s-no-outline img',  (elm: Element) => elm.getAttribute('src'));
         let price = 0;
         if(await (await productElm.$$('.a-price-whole')).length>0) {

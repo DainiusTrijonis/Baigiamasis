@@ -43,7 +43,7 @@ class Home extends React.Component<Props> {
     }, 10000)
   }
   componentWillUnmount() {
-    unsubscribe
+    clearInterval(unsubscribe);
   }
   render() {
     return (
@@ -69,7 +69,6 @@ class Home extends React.Component<Props> {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: 'black',
   },
   container: {
     flex: 1,
