@@ -9,8 +9,8 @@ import {
   Image,
   Linking,
   Dimensions,
-  ScrollView,
-  RecyclerViewBackedScrollView,
+  FlatList, 
+  TextInput,
   Keyboard,
 } from 'react-native';
 import {createApiClient,Product, ECommerce, History, Review} from '../api/products'
@@ -20,7 +20,6 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import Stars from 'react-native-stars';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth'
-import { FlatList, TextInput } from 'react-native-gesture-handler';
 export type AppState = {
   product?: Product,
   eCommerceArray?: ECommerce[],
@@ -57,7 +56,7 @@ export default class ProductScreen extends React.Component<Props> {
       reviewStars:2.5,
   };
   componentDidMount = () => {
-    const product = new Product(this.props.route.params.product['name'],this.props.route.params.product['photoURL'],parseFloat(this.props.route.params.product['date']),parseFloat(this.props.route.params.product['lowestPrice']), parseFloat(this.props.route.params.product['highestPrice']),parseFloat(this.props.route.params.product['createdAt']))
+    const product = new Product(this.props.route.params.product['objectID'],this.props.route.params.product['name'],this.props.route.params.product['photoURL'],parseFloat(this.props.route.params.product['date']),parseFloat(this.props.route.params.product['lowestPrice']), parseFloat(this.props.route.params.product['highestPrice']),parseFloat(this.props.route.params.product['createdAt']))
     this.setState({
       product: product
     })
@@ -124,8 +123,8 @@ export default class ProductScreen extends React.Component<Props> {
             style={{width: '30%', height: 100,resizeMode : 'stretch' }}
             source={{uri: product.photoURL}} 
           />
-          <View style={{flexDirection:'column',flexShrink: 1}}>
-            <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold', fontFamily:'sans-serif'}}>{product.name}</Text>
+          <View style={{flexDirection:'column',flex:1}}>
+            <Text numberOfLines={2} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold', fontFamily:'sans-serif'}}>{product.name}</Text>
             <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold'}}>{((this.state.time.getTime()/1000 -product.date )/ 60 ).valueOf().toFixed(1).toString() + " minutes ago"}</Text>
             <View style ={{ paddingLeft:20, flexDirection:'row',flexShrink: 1 }}>
               <Text style={{color:'#AB2D2D'}}>{product.lowestPrice + " €"}</Text>
@@ -152,12 +151,12 @@ export default class ProductScreen extends React.Component<Props> {
                   source = {{uri: item.shopLogoURL}}
                 />
               </View>
-              <View  style={{ padding:5,flexShrink: 1 }}>
-                  <Text numberOfLines={2}>{item.productName}</Text>
+              <View  style={{ padding:5,flex:1 }}>
+                  <Text numberOfLines={3}>{item.productName}</Text>
               </View>
               <View style={{flexDirection:'column', alignItems:'center'}}>
                 <View style={{paddingBottom:3}}>
-                  <Text style={{color:'#AB2D2D', fontFamily:'sans-serif'}}>{item.lowestPrice!=0? item.lowestPrice + " €":"Out of stock"}</Text>
+                  <Text style={{color:'#AB2D2D'}}>{item.lowestPrice!=0? item.lowestPrice + " €":"Out of stock"}</Text>
                 </View>
                 <TouchableOpacity onPress={() => { this.goToHref(item.href)}} style={{backgroundColor:'green'}}>
                   <Text> {"Go to shop"} </Text>

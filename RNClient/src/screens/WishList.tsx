@@ -20,6 +20,7 @@ interface Props {
     user: any;
     initializing: boolean;
     dialogVisible: boolean;
+    products: Product[];
   };
 
 export default class WishList extends React.Component<Props> {
@@ -27,6 +28,7 @@ export default class WishList extends React.Component<Props> {
       user: null,
       initializing: true,
       dialogVisible: false,
+      products: new Array<Product>(),
   };
   
   componentDidMount = () => {
@@ -41,7 +43,7 @@ export default class WishList extends React.Component<Props> {
             </TouchableOpacity>
           )
         });
-
+        unsubscribe = api.getWishListRealtime2(this.onUpdateProducts,user.uid)
         this.setState({
           user: user,
           initializing: false,
@@ -58,10 +60,17 @@ export default class WishList extends React.Component<Props> {
 
 
   };
+
   componentWillUnmount = () => {
-
+    unsubscribe();
   }
-
+  onUpdateProducts = (products:Product[]) => {
+    this.setState({
+      products: products,
+      isLoading: false,
+    });
+    console.log(products);
+  }
   onClickAddProduct = () => {
     this.props.navigation.navigate("AddProduct")
   }

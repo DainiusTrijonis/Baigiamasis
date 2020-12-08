@@ -1,21 +1,26 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import auth, { FirebaseAuthTypes }  from '@react-native-firebase/auth'
 import functions from '@react-native-firebase/functions'
-import firebase from '@react-native-firebase/app'
+import { diffClamp } from 'react-native-reanimated';
+
 export class Product {
+  id:string;
   name: string;
   photoURL: string;
   date: number;
   lowestPrice:number;
   highestPrice:number;
-  createdAt: number
-  constructor (name:string,photoURL:string, date:number, lowestPrice:number, highestPrice:number, createdAt:number) {
+  createdAt: number;
+  wish?:Wish ;
+  constructor (id:string,name:string,photoURL:string, date:number, lowestPrice:number, highestPrice:number, createdAt:number, wish?:Wish) {
+    this.id = id;
     this.name = name;
     this.photoURL = photoURL
     this.date = date;
     this.lowestPrice = lowestPrice;
     this.highestPrice = highestPrice;
     this.createdAt = createdAt;
+    this.wish = wish;
   }
 }
   
@@ -62,6 +67,22 @@ export class Review {
   }
 
 }
+class Wish {
+  id: string;
+  toNotify:boolean;
+  lastNotified: number;
+  priceWhenToNotify:number;
+  uid:string;
+  constructor(id:string,toNotify:boolean,lastNotified:number, priceWhenToNotify:number,uid:string) {
+    this.id = id;
+    this.toNotify = toNotify;
+    this.lastNotified = lastNotified;
+    this.priceWhenToNotify = priceWhenToNotify;
+    this.uid = uid;
+  }
+
+
+}
 
 export type ApiClient = {
   getProductRealtime(callback:any, productId:string): void
@@ -69,8 +90,10 @@ export type ApiClient = {
   getHistoryRealtime(callback:any, productId:string):void
   getReviewsRealTime(callback:any, productId:string):void
   getWishListRealtime(callback:any,uid:string): void
+  //getWishListRealtime2(callback:any,uid:string): void
   sendReview(message:string, stars:number, productId:string):void
   getEcommercesOnKeyword(keyword:string):void
+  addProductToSystem(eCommerce:ECommerce[]):void
 }
 function sortBy(arr:ECommerce[], ascending:boolean) {
   return arr.sort((a, b) => {
@@ -86,7 +109,7 @@ export const createApiClient = (): ApiClient => {
       const unsubscribe = firestore().collection('product').doc(id).onSnapshot((snap) => {
         const snapshot = snap.data();
         if(snapshot) {
-          const product:Product = new Product(snapshot.name,snapshot.photoURL,parseFloat(snapshot.date),parseFloat(snapshot.lowestPrice),parseFloat(snapshot.highestPrice),parseFloat(snapshot.createdAt) )
+          const product:Product = new Product(snap.id,snapshot.name,snapshot.photoURL,parseFloat(snapshot.date),parseFloat(snapshot.lowestPrice),parseFloat(snapshot.highestPrice),parseFloat(snapshot.createdAt) )
           callback(product);
         }
       })
@@ -102,6 +125,7 @@ export const createApiClient = (): ApiClient => {
           eCommerceArray.push(eCommerce)
         });
         eCommerceArray = sortBy(eCommerceArray, true);
+        console.log("refreshed")
         callback(eCommerceArray);
       })
       return function() {
@@ -165,22 +189,49 @@ export const createApiClient = (): ApiClient => {
 
       
     },
-    getWishListRealtime: (callback, uid) => {
-      const unsubscribe = firestore().collection('WishList').doc(uid).onSnapshot((snap) => {
-        const snapshot = snap.data();
-        let eCommerceArray: ECommerce[] = new Array<ECommerce>();
-        if(snapshot)
-        snapshot.forEach((element:any) => {
-          const eCommerce:ECommerce = element.data();
-          eCommerceArray.push(eCommerce);
-        });
-        callback(eCommerceArray);
+    getWishListRealtime: (callback, uid) => {      
+      const unsubscribe = firestore().collectionGroup('wished').where('uid','==',uid).onSnapshot(async (snap) => {
+        if(snap) {
+          let wishedDocs = Array<FirebaseFirestoreTypes.DocumentData>()
+          snap.forEach(async element => {
+            wishedDocs.push(element)
+          });
+          await Promise.all(
+            wishedDocs.map(async (element) => {
+              const product:Product = await element.ref.parent.parent?.get().then((doc)=>{
+                const snapshotWish = element.data();
+                const snapshotProduct = doc.data();
+                if(snapshotProduct && snapshotWish) {
+                  let wish = new Wish(element.id,snapshotWish.toNotify,snapshotWish.lastNotified,snapshotWish.priceWhenToNotify,snapshotWish.uid);
+                  let product = new Product(doc.id,snapshotProduct.name,snapshotProduct.photoURL,snapshotProduct.date,snapshotProduct.lowestPrice,snapshotProduct.highestPrice,snapshotProduct.createdAt,wish);
+                  return product;
+                }
+              })
+              if(product) {
+                return product;
+              }
+            })
+          ).then((data) => {
+            console.log("should call back")
+            callback(data)
+          })
+        }
       })
       return function() {
         unsubscribe();
       }
     },
+    // getWishListRealtime2: (callback,uid) => {
+    //   const unsubscribe = firestore().collectionGroup('wished').where('uid','==',uid).onSnapshot(async (snap) => {
+    //     let productArray = new Array<Product>();
+    //     callback(eCommerceArray);
+    //   })
+    //   return function() {
+    //     unsubscribe();
+    //   }
+    // },
 
+    
 
     getEcommercesOnKeyword: async (keyword) => {
       const data: { [key: string]: any} = {keyword}
@@ -196,8 +247,30 @@ export const createApiClient = (): ApiClient => {
       })
       return x;
 
+    },
+
+    addProductToSystem: async (eCommerce) => {
+      const user = auth().currentUser;
+      if(user) {
+        const x = auth().currentUser?.getIdToken(true).then(async (idToken)=>{
+          if(idToken) {
+            const data: { [key: string]: any} = {eCommerce, idToken}
+            functions().useFunctionsEmulator('http://localhost:5001');
+      
+            await functions().httpsCallable('addProduct')(data).then((res) => {
+              console.log(res.data);
+            })
+          } else {
+            return false;
+          }
+        }).catch((error) => {
+          console.log(error)
+          return false;
+        })
+        return x;
+      }else {
+        return false;
+      }
     }
-
-
   }
 }

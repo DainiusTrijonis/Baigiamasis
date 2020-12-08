@@ -129,6 +129,36 @@ const eCommerceConverter = {
   },
 }
 
+class Wish {
+  toNotify:boolean;
+  lastNotified: number;
+  priceWhenToNotify:number;
+  uid:string;
+  constructor(toNotify:boolean,lastNotified:number, priceWhenToNotify:number,uid:string) {
+    this.toNotify = toNotify
+    this.lastNotified = lastNotified;
+    this.priceWhenToNotify = priceWhenToNotify;
+    this.uid = uid;
+  }
+
+
+}
+const wishConverter = {
+  toFirestore: function(wish:Wish) {
+      return {
+        toNotify:wish.toNotify,
+        lastNotified: wish.lastNotified,
+        priceWhenToNotify:wish.priceWhenToNotify,
+        uid: wish.uid,
+      }
+  },
+  fromFirestore: function(snapshot:FirebaseFirestore.QueryDocumentSnapshot){
+      const data = snapshot.data();
+      return new Wish(data.toNotify, data.lastNotified, data.priceWhenToNotify, data.uid);
+  },
+}
+
+
 admin.initializeApp({
  credential: admin.credential.cert(serviceAccount),
 
@@ -313,7 +343,7 @@ export const updateProductCron = functions.runWith({memory:'2GB'}).pubsub.schedu
 })
 
 export const updateProductTest = functions.runWith({memory:'2GB'}).https.onRequest(async (request,response) => {
-  const time = admin.firestore.Timestamp.now().seconds-3600;
+  const time = admin.firestore.Timestamp.now().seconds-60;
   const bool:boolean = await admin.firestore().collection('product').where('date','<',time).limit(2).withConverter(productConverter).get().then(async (querySnapshot)=>{
     let array:FirebaseFirestore.QueryDocumentSnapshot<Product>[] =[] 
     querySnapshot.forEach(element => {
@@ -433,16 +463,26 @@ async function updateSenukaiPrice(eCommerce:ECommerce, page:puppeteer.Page):Prom
 
   const update = await Promise.all([
     response,
-    await page.$eval(".product-price-details span span", (elm) => {return elm.innerHTML.replace(',', '.')}),
+    await page.$$(".product-price-details span span").then(async (doc) => {
+      if(doc.length>0) {
+        let buyboxPrice = await page.$eval(".product-price-details span span", (elm) => elm.innerHTML.replace(',', '.').replace(' ',''))
+
+        const price:number = parseFloat(buyboxPrice);
+
+        return price;
+      }
+      else {
+        return 0
+      }
+    }),
   ]).then((data) => {
-    const updatedEcommerce = eCommerce;
-    const priceString = data[1]; 
-    let price = parseFloat(priceString);
+    let price = data[1];
     if(isNaN(price) || !price) { 
       price = 0;
     }
-    updatedEcommerce.lowestPrice = price;
-    return updatedEcommerce;
+    let updatedECommerce = eCommerce;
+    updatedECommerce.lowestPrice = price;
+    return updatedECommerce;
   })
   return update;
 }
@@ -460,7 +500,9 @@ async function updateAmazonPrice(eCommerce:ECommerce, page:puppeteer.Page):Promi
     await page.$$(".a-box-group #price_inside_buybox").then(async (doc)=>{
       if(doc.length>0) {
         let buyboxPrice = await page.$eval(".a-box-group #price_inside_buybox", (elm) => elm.innerHTML);
-        const price:number = parseFloat(buyboxPrice.replace('€',''));
+        console.log("buyBoxPrice:" +buyboxPrice);
+        const price:number = parseFloat(buyboxPrice.replace('€','').replace(',',''));
+        console.log("price:" +price);
         return price
       }
       else {
@@ -662,6 +704,37 @@ exports.getProducts = functions.runWith({memory:'2GB'}).https.onCall(async (data
   return x;
 })
 
+exports.addProduct = functions.https.onCall((data) => {
+  return admin.auth().verifyIdToken(data['idToken']).then((token) => {
+    if(token.uid) {
+      console.log(token.uid)
+      const eCommerceArray:ECommerce[] = data['eCommerce'];
+      let lowestPriceECommerce = sortBy(eCommerceArray,true)[0].lowestPrice ;
+      let highestPriceECommerce = sortBy(eCommerceArray,false)[0].lowestPrice;
+      console.log(lowestPriceECommerce);
+      console.log(highestPriceECommerce)
+      const product:Product = new Product(eCommerceArray[0].productName,eCommerceArray[0].photoURL,admin.firestore.Timestamp.now().seconds,lowestPriceECommerce,highestPriceECommerce,admin.firestore.Timestamp.now().seconds)
+      return admin.firestore().collection('product').withConverter(productConverter).add(product).then((ref) => {
+        eCommerceArray.forEach(element => {
+          ref.collection('ECommerce').withConverter(eCommerceConverter).add(element).then(()=>{console.log("")}).catch((error)=>{console.log(error)})
+        });
+        ref.collection('wished').withConverter(wishConverter).add(new Wish(true,admin.firestore.Timestamp.now().seconds,lowestPriceECommerce-0.01,token.uid)).then(()=>{console.log("")}).catch((error)=>{console.log(error)})       
+        return true;
+      }).catch((error) => {
+        console.log(error)
+        return false;
+      })
+
+    }
+    else {
+      return false;
+    }
+  }).catch((error)=>{
+    console.log(error);
+    return false;
+  });
+
+})
 
 
 async function getArrayECommerceOnSearchSenukai(searchString:string,page:puppeteer.Page):Promise<ECommerce[]>{
@@ -697,7 +770,8 @@ async function getArrayECommerceOnSearchSenukai(searchString:string,page:puppete
             const name = await product.$eval(" a.new-product-name", (elm: Element) => elm.innerHTML);
             let price = await product.$eval("   .item-price span", (elm: Element) => elm.textContent);
             if(price && imgURL && href && name) {
-              price = price?.replace(",",".");
+              price = price?.replace(/\s+/g,'').replace(",",".");
+              console.log(price)
               const priceFloat = parseFloat(price);
               const eCommerce:ECommerce = new ECommerce(
                 "Senukai",
@@ -753,7 +827,8 @@ async function getArrayECommerceOnSearchSenukai(searchString:string,page:puppete
     console.log(error);
     return new Array<ECommerce>();
   })
-
+  if(ryzas.length>0)
+  ryzas[0].shopLogoURL = 'https://www.senukai.lt/assets/schema/senukai_lt-f17959262e224d00a32be8c31cfca13315fc1a8f78bb91e4387a93042574f5a7.png'
   return ryzas
 
 
@@ -789,18 +864,22 @@ async function getArrayECommerceOnSearchAmazon(searchString:string,page:puppetee
         href = "https://www.amazon.de/"+href;
         let imageURL = await productElm.$eval('.s-no-outline img',  (elm: Element) => elm.getAttribute('src'));
         let price = 0;
-        if(await (await productElm.$$('.a-price-whole')).length>0) {
-          price = await productElm.$eval('.a-price-whole', (elm:Element) => { return  elm.innerHTML? parseFloat(elm.innerHTML): 0});
-        }
         let name = "none";
-        if(await (await productElm.$$('.a-price-whole')).length>0)
-        name = await productElm.$eval('.s-line-clamp-2 span', (elm:Element) => elm.innerHTML)
-
+        if(await (await productElm.$$('.a-price-whole')).length>0) {
+          price = await productElm.$eval('.a-price-whole', (elm:Element) => { return  elm.innerHTML? parseFloat(elm.innerHTML.replace(',','')): 0});
+        }
+        if(await (await productElm.$$('.s-line-clamp-2 span')).length>0) {
+          name = await productElm.$eval('.s-line-clamp-2 span', (elm:Element) => elm.innerHTML)
+        } else {
+          name = await productElm.$eval('.a-size-base-plus', (elm:Element) => elm.innerHTML)
+        }
+        //.a-size-base-plus bic iconska
+        
         if(href && imageURL && price && name ) {
           return new ECommerce("Amazon","https://g.foolcdn.com/image/?url=https:%2F%2Fg.foolcdn.com%2Feditorial%2Fimages%2F485626%2Famzn-logo.jpg&w=700&op=resize",name,price,imageURL,href)
         }
         else {
-          return new ECommerce("","","",0,"","")
+          return new ECommerce("Amazon","https://g.foolcdn.com/image/?url=https:%2F%2Fg.foolcdn.com%2Feditorial%2Fimages%2F485626%2Famzn-logo.jpg&w=700&op=resize","",0,"","")
         }
       })).then((products) => {
         let productsReduced:ECommerce[] = products
@@ -828,8 +907,10 @@ async function getArrayECommerceOnSearchAmazon(searchString:string,page:puppetee
     console.log(error);
     return []
   })
-
+  if(eCommerces.length>0)
+  eCommerces[0].shopLogoURL = "https://g.foolcdn.com/image/?url=https:%2F%2Fg.foolcdn.com%2Feditorial%2Fimages%2F485626%2Famzn-logo.jpg&w=700&op=resize"
   return eCommerces;
 
 }
+
 
