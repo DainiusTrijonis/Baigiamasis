@@ -32,7 +32,7 @@ const screenOptionStyle = {
       <Stack.Navigator screenOptions={screenOptionStyle}>
         <Stack.Screen name="WishList" component={WishListScreen} />
         <Stack.Screen name="AddProduct" component={AddProductScreen} />
-
+        <Stack.Screen name="Product" component={ProductScreen}  />
       </Stack.Navigator>
     );
   }

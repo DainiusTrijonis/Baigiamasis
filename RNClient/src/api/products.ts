@@ -1,7 +1,7 @@
 import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import auth, { FirebaseAuthTypes }  from '@react-native-firebase/auth'
 import functions from '@react-native-firebase/functions'
-import { diffClamp } from 'react-native-reanimated';
+import { call, diffClamp } from 'react-native-reanimated';
 
 export class Product {
   id:string;
@@ -11,7 +11,7 @@ export class Product {
   lowestPrice:number;
   highestPrice:number;
   createdAt: number;
-  wish?:Wish ;
+  wish?:Wish;
   constructor (id:string,name:string,photoURL:string, date:number, lowestPrice:number, highestPrice:number, createdAt:number, wish?:Wish) {
     this.id = id;
     this.name = name;
@@ -67,7 +67,7 @@ export class Review {
   }
 
 }
-class Wish {
+export class Wish {
   id: string;
   toNotify:boolean;
   lastNotified: number;
@@ -90,10 +90,10 @@ export type ApiClient = {
   getHistoryRealtime(callback:any, productId:string):void
   getReviewsRealTime(callback:any, productId:string):void
   getWishListRealtime(callback:any,uid:string): void
-  //getWishListRealtime2(callback:any,uid:string): void
   sendReview(message:string, stars:number, productId:string):void
   getEcommercesOnKeyword(keyword:string):void
   addProductToSystem(eCommerce:ECommerce[]):void
+  getWishedRealTime(callback:any,product:Product,uid:string):void
 }
 function sortBy(arr:ECommerce[], ascending:boolean) {
   return arr.sort((a, b) => {
@@ -125,7 +125,6 @@ export const createApiClient = (): ApiClient => {
           eCommerceArray.push(eCommerce)
         });
         eCommerceArray = sortBy(eCommerceArray, true);
-        console.log("refreshed")
         callback(eCommerceArray);
       })
       return function() {
@@ -212,7 +211,6 @@ export const createApiClient = (): ApiClient => {
               }
             })
           ).then((data) => {
-            console.log("should call back")
             callback(data)
           })
         }
@@ -221,17 +219,6 @@ export const createApiClient = (): ApiClient => {
         unsubscribe();
       }
     },
-    // getWishListRealtime2: (callback,uid) => {
-    //   const unsubscribe = firestore().collectionGroup('wished').where('uid','==',uid).onSnapshot(async (snap) => {
-    //     let productArray = new Array<Product>();
-    //     callback(eCommerceArray);
-    //   })
-    //   return function() {
-    //     unsubscribe();
-    //   }
-    // },
-
-    
 
     getEcommercesOnKeyword: async (keyword) => {
       const data: { [key: string]: any} = {keyword}
@@ -270,6 +257,21 @@ export const createApiClient = (): ApiClient => {
         return x;
       }else {
         return false;
+      }
+    },
+
+    getWishedRealTime:(callback,product,uid) => {
+      const unsubscribe = firestore().collection('product').doc(product.id).collection('wished').where('uid','==',uid).onSnapshot(async (snap) => {
+        let wish:Wish = new Wish("",true,0,0,"");
+        
+        snap.forEach(element => {
+          wish = new Wish(element.id,element.data().toNotify,element.data().lastNotified,element.data().priceWhenToNotify,element.data().uid);
+
+        });
+        callback(wish);
+      })
+      return function() {
+        unsubscribe();
       }
     }
   }

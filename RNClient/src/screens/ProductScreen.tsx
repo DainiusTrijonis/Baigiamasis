@@ -13,13 +13,14 @@ import {
   TextInput,
   Keyboard,
 } from 'react-native';
-import {createApiClient,Product, ECommerce, History, Review} from '../api/products'
+import {createApiClient,Product, ECommerce, History, Review, Wish} from '../api/products'
 import {
   LineChart,
 } from "react-native-chart-kit";
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Icon from 'react-native-vector-icons/FontAwesome';
 import Stars from 'react-native-stars';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth'
+import firestore from '@react-native-firebase/firestore'
 export type AppState = {
   product?: Product,
   eCommerceArray?: ECommerce[],
@@ -31,6 +32,7 @@ export type AppState = {
   user: FirebaseAuthTypes.User | null,
   reviewText:string,
   reviewStars:number,
+  wished?:Wish
 }
 interface Props {
   navigation: any
@@ -42,6 +44,8 @@ let unsubscribe3:any;
 let unsubscribe4:any;
 let unsubscribe5:any;
 let unsubscribe6:any;
+let unsubscribe7:any;
+
 const api = createApiClient();
 function prettyDate2(time:Date){
   return   time.toLocaleTimeString('lt-LT').slice(0, -6);
@@ -56,7 +60,13 @@ export default class ProductScreen extends React.Component<Props> {
       reviewStars:2.5,
   };
   componentDidMount = () => {
-    const product = new Product(this.props.route.params.product['objectID'],this.props.route.params.product['name'],this.props.route.params.product['photoURL'],parseFloat(this.props.route.params.product['date']),parseFloat(this.props.route.params.product['lowestPrice']), parseFloat(this.props.route.params.product['highestPrice']),parseFloat(this.props.route.params.product['createdAt']))
+    let product:Product;
+    if(this.props.route.params.product['objectID']) {
+      product = new Product(this.props.route.params.product['objectID'],this.props.route.params.product['name'],this.props.route.params.product['photoURL'],parseFloat(this.props.route.params.product['date']),parseFloat(this.props.route.params.product['lowestPrice']), parseFloat(this.props.route.params.product['highestPrice']),parseFloat(this.props.route.params.product['createdAt']))
+
+    } else {
+      product = new Product(this.props.route.params.product['id'],this.props.route.params.product['name'],this.props.route.params.product['photoURL'],parseFloat(this.props.route.params.product['date']),parseFloat(this.props.route.params.product['lowestPrice']), parseFloat(this.props.route.params.product['highestPrice']),parseFloat(this.props.route.params.product['createdAt']),this.props.route.params.product['wish'])
+    }
     this.setState({
       product: product
     })
@@ -66,6 +76,8 @@ export default class ProductScreen extends React.Component<Props> {
           user: user,
           initializing: false,
         });
+        if(this.state.product && this.state.user)
+        unsubscribe7 = api.getWishedRealTime(this.onUpdateWish,this.state.product,user.uid)
       } 
       else {
         this.setState({
@@ -73,17 +85,19 @@ export default class ProductScreen extends React.Component<Props> {
         });
       }
     })
-    unsubscribe = api.getProductRealtime(this.onUpdateProduct, this.props.route.params.product['objectID']);
-    unsubscribe2 = api.getECommerceRealtime(this.onUpdateECommerceArray, this.props.route.params.product['objectID'])
-    unsubscribe4 = api.getHistoryRealtime(this.onUpdateHistoryArray, this.props.route.params.product['objectID'])
-    unsubscribe5 = api.getReviewsRealTime(this.onUpdateReviewArray,this.props.route.params.product['objectID'])
+    unsubscribe = api.getProductRealtime(this.onUpdateProduct, product.id);
+    unsubscribe2 = api.getECommerceRealtime(this.onUpdateECommerceArray, product.id)
+    unsubscribe4 = api.getHistoryRealtime(this.onUpdateHistoryArray, product.id)
+    unsubscribe5 = api.getReviewsRealTime(this.onUpdateReviewArray,product.id)
     unsubscribe3 = setInterval(() => {
       this.setState({
         time : new Date()
       })
     }, 60000)
 
-  };
+
+
+  }; 
 
   componentWillUnmount = () => {
     unsubscribe();
@@ -92,7 +106,35 @@ export default class ProductScreen extends React.Component<Props> {
     unsubscribe4();
     unsubscribe5();
     unsubscribe6();
+    if(this.state.user)
+    unsubscribe7();
   }
+  onUpdateWish = (wish:Wish) => {
+
+    if(wish.id === ""){
+      this.setState({
+        wished: undefined,
+      });
+    }
+    else {
+      this.setState({
+        wished: wish,
+      });
+    }
+  }
+  onPressWish = () => {
+    let time:number = new Date().getTime()/1000
+    time =parseInt( time.toFixed(0));
+    if(this.state.wished) {
+      if(this.state.product && this.state.user)
+        firestore().collection('product').doc(this.state.product.id).collection("wished").doc(this.state.wished.id).delete()
+    }
+    else {
+      if(this.state.product && this.state.user)
+        firestore().collection('product').doc(this.state.product.id).collection("wished").add({toNotify:true,lastNotified:time,priceWhenToNotify:this.state.product.lowestPrice-0.1,uid:this.state.user.uid})
+    }
+  } 
+
   onUpdateECommerceArray = (eCommerceArray:ECommerce[]) => {
     this.setState({
       eCommerceArray: eCommerceArray,
@@ -126,6 +168,15 @@ export default class ProductScreen extends React.Component<Props> {
           <View style={{flexDirection:'column',flex:1}}>
             <Text numberOfLines={2} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold', fontFamily:'sans-serif'}}>{product.name}</Text>
             <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold'}}>{((this.state.time.getTime()/1000 -product.date )/ 60 ).valueOf().toFixed(1).toString() + " minutes ago"}</Text>
+            {this.state.user? 
+              <TouchableOpacity onPress={()=>{this.onPressWish()}} style={{bottom:0,alignSelf:'flex-end',position:'absolute'}}>
+                <Icon name={this.state.wished? "heart":"heart-o"}
+                      size={25} color="red" 
+                />
+              </TouchableOpacity>
+            :<View/>}
+
+
             <View style ={{ paddingLeft:20, flexDirection:'row',flexShrink: 1 }}>
               <Text style={{color:'#AB2D2D'}}>{product.lowestPrice + " €"}</Text>
               <Text>{" - "}</Text>
@@ -273,7 +324,7 @@ export default class ProductScreen extends React.Component<Props> {
                       count={5}
                       starSize={40}
                       fullStar={<Icon name={'star'} style={[styles.myStarStyle]}/>}
-                      emptyStar={<Icon name={'star-outline'} style={[styles.myStarStyle, styles.myEmptyStarStyle]}/>}
+                      emptyStar={<Icon name={'star-o'} style={[styles.myStarStyle, styles.myEmptyStarStyle]}/>}
                       halfStar={<Icon name={'star-half'} style={[styles.myStarStyle]}/>}
                     />
                   </View>
@@ -316,7 +367,7 @@ export default class ProductScreen extends React.Component<Props> {
               half={true}
               starSize={50}
               fullStar={<Icon name={'star'} style={[styles.myStarStyle]}/>}
-              emptyStar={<Icon name={'star-outline'} style={[styles.myStarStyle, styles.myEmptyStarStyle]}/>}
+              emptyStar={<Icon name={'star-o'} style={[styles.myStarStyle, styles.myEmptyStarStyle]}/>}
               halfStar={<Icon name={'star-half'} style={[styles.myStarStyle]}/>}
             />
           </View>

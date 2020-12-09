@@ -48,8 +48,6 @@ const InfiniteHits = ({ hits, hasMore, refine, navigation, time }) => (
               <Text style={{color:'#AB2D2D'}}>{item.highestPrice+ " €"}</Text>
             </View>
           </View>
-
-          
         </View>
       </TouchableOpacity>
     )}
