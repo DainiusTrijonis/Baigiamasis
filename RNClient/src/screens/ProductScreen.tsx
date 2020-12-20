@@ -131,7 +131,7 @@ export default class ProductScreen extends React.Component<Props> {
     }
     else {
       if(this.state.product && this.state.user)
-        firestore().collection('product').doc(this.state.product.id).collection("wished").add({toNotify:true,lastNotified:time,priceWhenToNotify:this.state.product.lowestPrice-0.1,uid:this.state.user.uid})
+        firestore().collection('product').doc(this.state.product.id).collection("wished").add({toNotify:true,lastNotified:time,priceWhenToNotify:parseFloat((this.state.product.lowestPrice-0.1).toFixed(2)),uid:this.state.user.uid})
     }
   } 
 
@@ -243,6 +243,7 @@ export default class ProductScreen extends React.Component<Props> {
             width={Dimensions.get('window').width - 16} // from react-native
             height={220}
             yAxisLabel={'€'}
+            xAxisLabel={"h"}
             chartConfig={{
               backgroundColor: '#1cc910',
               backgroundGradientFrom: '#eff3ff',

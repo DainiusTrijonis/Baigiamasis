@@ -157,7 +157,7 @@ export default class AddProduct extends React.Component<Props> {
   submitSelectedECommerces = () => {
     if(this.state.selectedEcommerceArray.length>0) {
       api.addProductToSystem(this.state.selectedEcommerceArray);
-      this.props.navigation.navigate("WishList");
+      this.props.navigation.navigate("Search product");
     }
     else {
       //execute alert that noone was selected 
@@ -167,23 +167,22 @@ export default class AddProduct extends React.Component<Props> {
   renderECommerces2 = (eCommerceArray:ECommerce[][]) => {
     return (
       <View>
+        <View style = {{ opacity : this.state.selectedEcommerceArray.length>0? 1:0, alignItems:'center', alignContent:"center",justifyContent:'center'}}>
           <TouchableOpacity 
-            style={{
-              width: '100%', 
-              height: 50, 
-              backgroundColor: '#FF9800', 
-              justifyContent: 'center', 
-              alignItems: 'center',
-            }}
-            onPress={() => {this.submitSelectedECommerces()}}
-          >
-            <Text>
-              Click to submit
-            </Text>
-            <Text>
-              {"Currently selected: " +this.state.selectedEcommerceArray.length}
-            </Text>
+              style={styles.touchableOpacitySubmit}
+              onPress={() => {this.submitSelectedECommerces()}}
+            >
+              <Text>
+                Click to submit
+              </Text>
+
           </TouchableOpacity>
+          <Text>
+              {"Currently selected: " +this.state.selectedEcommerceArray.length}
+          </Text>
+        </View>
+
+
         <ScrollView
           contentContainerStyle={{ paddingBottom:420}}
         style={{}}>
@@ -242,7 +241,7 @@ export default class AddProduct extends React.Component<Props> {
               <this.SearchBox/>
               <TouchableOpacity style={styles.button} onPress={this.handleSubmit}>
                 <Text>
-                  Submit
+                  Search
                 </Text>
               </TouchableOpacity>
             </View>
@@ -255,6 +254,14 @@ export default class AddProduct extends React.Component<Props> {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+  },
+  touchableOpacitySubmit:{
+    width: '100%', 
+    height: 50, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    backgroundColor:'#65a422',
+    borderRadius:2, 
   },
   container: {
     padding:12,

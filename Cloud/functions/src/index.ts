@@ -13,21 +13,22 @@ const ALGOLIA_ADMIN_KEY = functions.config().algolia.key;
 const client = algoliasearch(ALGOLIA_ID, ALGOLIA_ADMIN_KEY);
 
 const index = client.initIndex('product');
-
 class Product {
   name: string;
   photoURL: string;
   date: number;
   lowestPrice:number;
   highestPrice:number;
-  createdAt: number
-  constructor (name:string,photoURL:string, date:number, lowestPrice:number, highestPrice:number, createdAt:number) {
+  createdAt: number;
+  createdByUID: string;
+  constructor (name:string,photoURL:string, date:number, lowestPrice:number, highestPrice:number, createdAt:number, createdByUID:string) {
     this.name = name;
     this.photoURL = photoURL
     this.date = date;
     this.lowestPrice = lowestPrice;
     this.highestPrice = highestPrice;
     this.createdAt = createdAt;
+    this.createdByUID = createdByUID;
   }
 }
 const productConverter = {
@@ -39,11 +40,12 @@ const productConverter = {
         lowestPrice: product.lowestPrice,
         highestPrice: product.highestPrice,
         createdAt: product.createdAt,
+        createdByUID: product.createdByUID,
       }
   },
   fromFirestore: function(snapshot:FirebaseFirestore.QueryDocumentSnapshot){
       const data = snapshot.data();
-      return new Product(data.name, data.photoURL, data.date, data.lowestPrice, data.highestPrice, data.createdAt);
+      return new Product(data.name, data.photoURL, data.date, data.lowestPrice, data.highestPrice, data.createdAt, data.createdByUID);
   },
 }
 
@@ -195,8 +197,32 @@ exports.addToIndex = functions.firestore.document('product/{productId}').onCreat
   return index.saveObject({ ...data, objectID});
 })
 
-exports.updateToIndex = functions.firestore.document('product/{productId}').onUpdate((snapshot)=>{
+exports.updateToIndex = functions.firestore.document('product/{productId}').onUpdate(async (snapshot)=>{
+  
   const data = snapshot.after.data();
+  //send message to client if notification and value lower
+  let title = data['name'] + " Price refresh"
+  let content = data['lowestPrice'];
+  let message:admin.messaging.Message = {
+    notification: {
+      title: title,
+      body: content,
+    },
+    topic: "Price update",
+  }
+  
+  await admin.messaging().send(message).then(() => {
+    console.log("sent message");
+  }).catch((error) => {
+    console.log(error);
+  })
+  
+  // admin.messaging().subscribeToTopic(data['idToken'],ref.path).then((res) => {
+  //   console.log("Successfully subscribed user to topic");
+  // }).catch((error) => {
+  //   console.log(error);
+  // })
+  
   const objectID = snapshot.after.id;
   return index.saveObject({ ...data, objectID});
 })
@@ -262,7 +288,7 @@ export const updateProductCron = functions.runWith({memory:'2GB'}).pubsub.schedu
           });
           product.ref.collection("history").withConverter(historyConverter).add(new History(updatedProduct.lowestPrice,updatedProduct.date)).then((historyQue) => {
             console.log("update history")
-            historyQue.parent.where('date','<',time-86000).withConverter(historyConverter).get().then((referenceHistory)=> {
+            historyQue.parent.where('date','<',time-43000).withConverter(historyConverter).get().then((referenceHistory)=> {
               referenceHistory.forEach(historyRef => {
                 historyRef.ref.delete().then(()=>console.log("succesfully delete old history")).catch((eror)=>console.log(eror));
               });
@@ -507,15 +533,18 @@ exports.addProduct = functions.https.onCall((data) => {
       console.log(token.uid)
       const eCommerceArray:ECommerce[] = data['eCommerce'];
       let lowestPriceECommerce = sortBy(eCommerceArray,true)[0].lowestPrice ;
+      lowestPriceECommerce = parseFloat(lowestPriceECommerce.toExponential(2));
       let highestPriceECommerce = sortBy(eCommerceArray,false)[0].lowestPrice;
+      highestPriceECommerce = parseFloat(highestPriceECommerce.toExponential(2));
       console.log(lowestPriceECommerce);
       console.log(highestPriceECommerce)
-      const product:Product = new Product(eCommerceArray[0].productName,eCommerceArray[0].photoURL,admin.firestore.Timestamp.now().seconds,lowestPriceECommerce,highestPriceECommerce,admin.firestore.Timestamp.now().seconds)
+      const product:Product = new Product(eCommerceArray[0].productName,eCommerceArray[0].photoURL,admin.firestore.Timestamp.now().seconds,lowestPriceECommerce,highestPriceECommerce,admin.firestore.Timestamp.now().seconds, token.uid)
+      console.log(product);
       return admin.firestore().collection('product').withConverter(productConverter).add(product).then((ref) => {
         eCommerceArray.forEach(element => {
           ref.collection('ECommerce').withConverter(eCommerceConverter).add(element).then(()=>{console.log("")}).catch((error)=>{console.log(error)})
         });
-        ref.collection('wished').withConverter(wishConverter).add(new Wish(true,admin.firestore.Timestamp.now().seconds,lowestPriceECommerce-0.01,token.uid)).then(()=>{console.log("")}).catch((error)=>{console.log(error)})       
+        ref.collection('wished').withConverter(wishConverter).add(new Wish(true,admin.firestore.Timestamp.now().seconds,lowestPriceECommerce-0.1,token.uid)).then(()=>{console.log("")}).catch((error)=>{console.log(error)})       
         return true;
       }).catch((error) => {
         console.log(error)
@@ -530,7 +559,6 @@ exports.addProduct = functions.https.onCall((data) => {
     console.log(error);
     return false;
   });
-
 })
 
 

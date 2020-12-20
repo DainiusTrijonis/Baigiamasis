@@ -21,8 +21,9 @@ const screenOptionStyle = {
   const HomeStackNavigator = () => {
     return (
       <Stack.Navigator screenOptions={screenOptionStyle}>
-        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Search product" component={HomeScreen} />
         <Stack.Screen name="Product" component={ProductScreen}  />
+        <Stack.Screen name="AddProduct" component={AddProductScreen} />
       </Stack.Navigator>
     );
   }
@@ -30,8 +31,7 @@ const screenOptionStyle = {
   const WishListStackNavigator = () => {
     return (
       <Stack.Navigator screenOptions={screenOptionStyle}>
-        <Stack.Screen name="WishList" component={WishListScreen} />
-        <Stack.Screen name="AddProduct" component={AddProductScreen} />
+        <Stack.Screen name="Wish List" component={WishListScreen} />
         <Stack.Screen name="Product" component={ProductScreen}  />
       </Stack.Navigator>
     );
@@ -48,4 +48,3 @@ const screenOptionStyle = {
 
   
   export { HomeStackNavigator, WishListStackNavigator, ProfileStackNavigator };
-

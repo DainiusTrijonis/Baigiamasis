@@ -52,15 +52,6 @@ export default class WishList extends React.Component<Props> {
   updateData = () => {
     unsubscribeUser = auth().onAuthStateChanged((user) => {
       if (user) {
-        this.props.navigation.setOptions({
-          headerRight: () => (
-            <TouchableOpacity onPress={this.onClickAddProduct}>
-              <Ionicons name="ios-add-circle"
-                  size={45} color="gray" 
-              />
-            </TouchableOpacity>
-          )
-        });
         this.setState({
           user: user,
           initializing: false,
@@ -87,9 +78,6 @@ export default class WishList extends React.Component<Props> {
       products: products,
       isLoading: false,
     });
-  }
-  onClickAddProduct = () => {
-    this.props.navigation.navigate("AddProduct")
   }
 
   renderActivityIndicator = () => {

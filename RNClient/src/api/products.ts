@@ -11,8 +11,10 @@ export class Product {
   lowestPrice:number;
   highestPrice:number;
   createdAt: number;
+  createdByUID: string;
   wish?:Wish;
-  constructor (id:string,name:string,photoURL:string, date:number, lowestPrice:number, highestPrice:number, createdAt:number, wish?:Wish) {
+
+  constructor (id:string,name:string,photoURL:string, date:number, lowestPrice:number, highestPrice:number, createdAt:number,   createdByUID: string, wish?:Wish) {
     this.id = id;
     this.name = name;
     this.photoURL = photoURL
@@ -20,6 +22,7 @@ export class Product {
     this.lowestPrice = lowestPrice;
     this.highestPrice = highestPrice;
     this.createdAt = createdAt;
+    this.createdByUID = createdByUID;
     this.wish = wish;
   }
 }
@@ -109,7 +112,7 @@ export const createApiClient = (): ApiClient => {
       const unsubscribe = firestore().collection('product').doc(id).onSnapshot((snap) => {
         const snapshot = snap.data();
         if(snapshot) {
-          const product:Product = new Product(snap.id,snapshot.name,snapshot.photoURL,parseFloat(snapshot.date),parseFloat(snapshot.lowestPrice),parseFloat(snapshot.highestPrice),parseFloat(snapshot.createdAt) )
+          const product:Product = new Product(snap.id,snapshot.name,snapshot.photoURL,parseFloat(snapshot.date),parseFloat(snapshot.lowestPrice),parseFloat(snapshot.highestPrice),parseFloat(snapshot.createdAt), snapshot.createdByUID )
           callback(product);
         }
       })
@@ -202,7 +205,7 @@ export const createApiClient = (): ApiClient => {
                 const snapshotProduct = doc.data();
                 if(snapshotProduct && snapshotWish) {
                   let wish = new Wish(element.id,snapshotWish.toNotify,snapshotWish.lastNotified,snapshotWish.priceWhenToNotify,snapshotWish.uid);
-                  let product = new Product(doc.id,snapshotProduct.name,snapshotProduct.photoURL,snapshotProduct.date,snapshotProduct.lowestPrice,snapshotProduct.highestPrice,snapshotProduct.createdAt,wish);
+                  let product = new Product(doc.id,snapshotProduct.name,snapshotProduct.photoURL,snapshotProduct.date,snapshotProduct.lowestPrice,snapshotProduct.highestPrice,snapshotProduct.createdAt,snapshotProduct.createdByUID,wish);
                   return product;
                 }
               })
