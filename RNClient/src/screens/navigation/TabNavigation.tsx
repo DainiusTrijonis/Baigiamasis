@@ -6,12 +6,13 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 const Tab = createBottomTabNavigator();
 
 const BottomTabNavigator = () => {
+
   return (
     <Tab.Navigator>
       <Tab.Screen
         name="Home" 
         component={HomeStackNavigator}
-        options= {{ 
+        options= {{
           title: 'Home',
           tabBarIcon:({color:tintColor})=>(  
             <Icon name="home" color={tintColor} size={25}/>  

@@ -13,6 +13,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth'
 import {createApiClient,Product} from '../api/products'
 import { Container, Header, Content, Card, CardItem, Thumbnail, Text, Button, Icon, Left, Body, Right,Input, Spinner, List, ListItem } from 'native-base';
+import { onChange } from 'react-native-reanimated';
 
 const api = createApiClient();
 let unsubscribe:any;
@@ -119,6 +120,28 @@ export default class WishList extends React.Component<Props> {
       'product':product,
     })
   }
+  onChangeText = (text:string, itemID:string) => {
+    let products = this.state.products
+    for(let i=0; i<products.length; i++) {
+      let wish;
+      if(products[i].wish) {
+        wish = products[i].wish
+      }
+      if(wish) {
+        wish.priceWhenToNotify = parseFloat(text);
+      }
+      products[i].wish = wish;
+    }
+  
+
+    this.setState({
+      products: products
+    })
+    
+  }
+  onSubmitEditWish= (item:Product) => {
+    api.submitWished(item);
+  }
   renderWishList = (products:Product[]) => {
     return (
       
@@ -142,7 +165,10 @@ export default class WishList extends React.Component<Props> {
                 <Text>Notify me when</Text>
                 <TextInput
                   value = {item.wish?.priceWhenToNotify.toString()}
+                  
                   style={styles.input} 
+                  onChangeText={text => this.onChangeText(text,item.id)}
+                  onSubmitEditing = {() => this.onSubmitEditWish(item)}
                 />
               </View>
             </View>

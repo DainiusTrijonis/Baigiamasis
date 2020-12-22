@@ -7,8 +7,6 @@ import InfiniteHits from '../InfiniteHits';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth'
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-
-
 const searchClient = algoliasearch(
   'FAGJI8FK54',
   'd99eaa4522c1f0c40c66103290c40318'
@@ -43,6 +41,7 @@ class Home extends React.Component<Props> {
     interval: 60000,
   };
   componentDidMount() {
+    
     this.state.focusListener = this.props.navigation.addListener("focus",() => {
       // Update your data
       this.updateData();

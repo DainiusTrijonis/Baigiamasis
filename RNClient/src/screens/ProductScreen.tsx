@@ -32,7 +32,8 @@ export type AppState = {
   user: FirebaseAuthTypes.User | null,
   reviewText:string,
   reviewStars:number,
-  wished?:Wish
+  wished?:Wish,
+  ownProduct:boolean,
 }
 interface Props {
   navigation: any
@@ -58,27 +59,34 @@ export default class ProductScreen extends React.Component<Props> {
       whatToRender:'Sellers',
       reviewText:'',
       reviewStars:2.5,
+      ownProduct:false,
+
   };
   componentDidMount = () => {
     let product:Product;
     if(this.props.route.params.product['objectID']) {
-      product = new Product(this.props.route.params.product['objectID'],this.props.route.params.product['name'],this.props.route.params.product['photoURL'],parseFloat(this.props.route.params.product['date']),parseFloat(this.props.route.params.product['lowestPrice']), parseFloat(this.props.route.params.product['highestPrice']),parseFloat(this.props.route.params.product['createdAt']))
-
+      product = new Product(this.props.route.params.product['objectID'],this.props.route.params.product['name'],this.props.route.params.product['photoURL'],parseFloat(this.props.route.params.product['date']),parseFloat(this.props.route.params.product['lowestPrice']), parseFloat(this.props.route.params.product['highestPrice']),parseFloat(this.props.route.params.product['createdAt']),this.props.route.params.product['createdByUID'])
     } else {
-      product = new Product(this.props.route.params.product['id'],this.props.route.params.product['name'],this.props.route.params.product['photoURL'],parseFloat(this.props.route.params.product['date']),parseFloat(this.props.route.params.product['lowestPrice']), parseFloat(this.props.route.params.product['highestPrice']),parseFloat(this.props.route.params.product['createdAt']),this.props.route.params.product['wish'])
+      product = new Product(this.props.route.params.product['id'],this.props.route.params.product['name'],this.props.route.params.product['photoURL'],parseFloat(this.props.route.params.product['date']),parseFloat(this.props.route.params.product['lowestPrice']), parseFloat(this.props.route.params.product['highestPrice']),parseFloat(this.props.route.params.product['createdAt']),this.props.route.params.product['createdByUID'],this.props.route.params.product['wish'])
     }
     this.setState({
       product: product
     })
     unsubscribe6 = auth().onAuthStateChanged((user) => {
       if (user) {
+        let ownProduct:boolean = false;
+        if(this.state.product?.createdByUID == user.uid) {
+          ownProduct = true;
+        }
         this.setState({
           user: user,
           initializing: false,
+          ownProduct: ownProduct
         });
+        console.log(ownProduct);
         if(this.state.product && this.state.user)
         unsubscribe7 = api.getWishedRealTime(this.onUpdateWish,this.state.product,user.uid)
-      } 
+      }
       else {
         this.setState({
           initializing: false,
@@ -187,9 +195,34 @@ export default class ProductScreen extends React.Component<Props> {
       </View>
     )
   }
+  renderDeleteECommerce = (eCommerce:ECommerce) => {
+    return(
+      <TouchableOpacity onPress={()=>{this.deleteECommerce(eCommerce)}} style={{padding:5}}>
+        <Icon name={"trash-o"}
+              size={25} color="gray" 
+        />
+      </TouchableOpacity>
+    )
+  }
+  deleteECommerce = (eCommerce:ECommerce) => {
+    if(this.state.product) {
+      api.deleteECommerce(this.state.product,eCommerce);
+    }
+  }
+  renderAddECommerce = () => {
+    return (
+      <TouchableOpacity onPress={()=>{this.deleteECommerce(eCommerce)}} style={{padding:10,alignItems:'center'}}>
+        <Icon name={"plus-circle"}
+              size={25} color="gray" 
+        />
+      </TouchableOpacity>
+    )
+  }
   renderECommerceArray = (eCommerceArray:ECommerce[]) => {
+    const {ownProduct} = this.state
     return (
       <View>
+        {ownProduct ? this.renderAddECommerce() : null}
         <FlatList
           data = {eCommerceArray}
           keyExtractor = {(item) => item.id}
@@ -212,6 +245,7 @@ export default class ProductScreen extends React.Component<Props> {
                 <TouchableOpacity onPress={() => { this.goToHref(item.href)}} style={{backgroundColor:'green'}}>
                   <Text> {"Go to shop"} </Text>
                 </TouchableOpacity>
+                {ownProduct ? this.renderDeleteECommerce(item) : null}
               </View>
             </View>
           </View>

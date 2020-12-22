@@ -97,6 +97,8 @@ export type ApiClient = {
   getEcommercesOnKeyword(keyword:string):void
   addProductToSystem(eCommerce:ECommerce[]):void
   getWishedRealTime(callback:any,product:Product,uid:string):void
+  submitWished(product:Product):void
+  deleteECommerce(product:Product,eCommerce:ECommerce):void
 }
 function sortBy(arr:ECommerce[], ascending:boolean) {
   return arr.sort((a, b) => {
@@ -276,6 +278,14 @@ export const createApiClient = (): ApiClient => {
       return function() {
         unsubscribe();
       }
+    },
+    submitWished:(product) => {
+      if(product.wish) {
+        firestore().collection('product').doc(product.id).collection("wished").doc(product.wish.id).set(product.wish)
+      }
+    },
+    deleteECommerce:(product,eCommerce) => {
+      firestore().collection('product').doc(product.id).collection('ECommerce').doc(eCommerce.id).delete();
     }
   }
 }

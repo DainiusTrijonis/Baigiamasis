@@ -160,6 +160,26 @@ const wishConverter = {
   },
 }
 
+class User {
+  fcmTokens:string[]
+  constructor(fcmTokens:string[]) {
+    this.fcmTokens = fcmTokens
+  }
+
+
+}
+const userConverter = {
+  toFirestore: function(user:User) {
+      return {
+        fcmToken:user.fcmTokens,
+      }
+  },
+  fromFirestore: function(snapshot:FirebaseFirestore.QueryDocumentSnapshot){
+      const data = snapshot.data();
+      return new User(data.fcmTokens);
+  },
+}
+
 
 admin.initializeApp({
  credential: admin.credential.cert(serviceAccount),
@@ -197,32 +217,101 @@ exports.addToIndex = functions.firestore.document('product/{productId}').onCreat
   return index.saveObject({ ...data, objectID});
 })
 
+// exports.sendMessage = functions.https.onRequest((req,res) => {
+//   let title = "Price decrease"
+//   let content = "Price decrease of "
+//   admin.firestore().collection('product').doc("naB3HSlRvhSfGM2wC5GT").collection('wished').withConverter(wishConverter).get().then((querySnapshot) => {
+//     let wishList = new Array<Wish>();
+//     querySnapshot.forEach((wishQuery) => {
+//       wishList.push(wishQuery.data())
+//     })
+//     Promise.all(
+//       wishList.map(async (wish) => {
+//         const query = await admin.firestore().collection('user').withConverter(userConverter).doc(wish.uid).get();
+//         if (query.exists) {
+//           const user = query.data();
+//           if (user && user.fcmTokens) {
+//             return user.fcmTokens;
+//           } else {
+//             return [];
+//           }
+//         }
+//         else {
+//           return [];
+//         }
+//       })
+//     ).then((data)=>{
+//       for(const tokens of data) {
+//         console.log(tokens);
+//         admin.messaging().sendMulticast({
+//           tokens: tokens,
+//           notification: {
+//             title: title,
+//             body: content,
+//           },
+          
+//         }).then((wow) => {
+//           console.log(wow);
+//         })
+//       }
+//       res.send("wow");
+//     })
+//   })
+// })
+
 exports.updateToIndex = functions.firestore.document('product/{productId}').onUpdate(async (snapshot)=>{
-  
   const data = snapshot.after.data();
-  //send message to client if notification and value lower
-  let title = data['name'] + " Price refresh"
-  let content = data['lowestPrice'];
-  let message:admin.messaging.Message = {
-    notification: {
-      title: title,
-      body: content,
-    },
-    topic: "Price update",
-  }
-  
-  await admin.messaging().send(message).then(() => {
-    console.log("sent message");
-  }).catch((error) => {
+  const productAfter = productConverter.fromFirestore(snapshot.after)
+  snapshot.after.ref.collection("wished").withConverter(wishConverter).get().then(async (querySnapshot) => {
+    let wishList = new Array<Wish>();
+    querySnapshot.forEach((wishQuery) => {
+      if(wishQuery.data().priceWhenToNotify>productAfter.lowestPrice)
+      {
+        wishList.push(wishQuery.data())
+        let wishUpdated = wishQuery.data();
+        wishUpdated.priceWhenToNotify = parseFloat((productAfter.lowestPrice-0.1).toFixed(2))
+        console.log(wishUpdated.priceWhenToNotify);
+        wishQuery.ref.set(wishUpdated).then(() => {console.log("updated Wish price to lower")}).catch((error) => {console.log(error)})
+      }
+
+    })
+
+    Promise.all(
+      wishList.map(async (wish) => {
+        const query = await admin.firestore().collection('user').withConverter(userConverter).doc(wish.uid).get();
+        if (query.exists) {
+          const user = query.data();
+          if (user && user.fcmTokens) {
+            return user.fcmTokens;
+          } else {
+            return [];
+          }
+        }
+        else {
+          return [];
+        }
+      })
+    ).then((tokensTokens)=>{
+      for(const tokens of tokensTokens) {
+        admin.messaging().sendMulticast({
+          tokens: tokens,
+          notification: {
+            title: "Product you subscribed price changed",
+            body: productAfter.name+" "+productAfter.lowestPrice +"€",
+          },
+        }).then((response) => {
+          console.log(response);
+        }).catch((error)=>{
+          console.log(error);
+        })
+      }
+    }).catch((error) => {
+      console.log(error);
+    })
+  }).catch((error)=>{
     console.log(error);
   })
-  
-  // admin.messaging().subscribeToTopic(data['idToken'],ref.path).then((res) => {
-  //   console.log("Successfully subscribed user to topic");
-  // }).catch((error) => {
-  //   console.log(error);
-  // })
-  
+
   const objectID = snapshot.after.id;
   return index.saveObject({ ...data, objectID});
 })
@@ -540,7 +629,7 @@ exports.addProduct = functions.https.onCall((data) => {
       console.log(highestPriceECommerce)
       const product:Product = new Product(eCommerceArray[0].productName,eCommerceArray[0].photoURL,admin.firestore.Timestamp.now().seconds,lowestPriceECommerce,highestPriceECommerce,admin.firestore.Timestamp.now().seconds, token.uid)
       console.log(product);
-      return admin.firestore().collection('product').withConverter(productConverter).add(product).then((ref) => {
+      return admin.firestore().collection('product').withConverter(productConverter).add(product).then(async (ref) => {
         eCommerceArray.forEach(element => {
           ref.collection('ECommerce').withConverter(eCommerceConverter).add(element).then(()=>{console.log("")}).catch((error)=>{console.log(error)})
         });
