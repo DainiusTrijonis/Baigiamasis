@@ -23,7 +23,7 @@ const screenOptionStyle = {
       <Stack.Navigator screenOptions={screenOptionStyle}>
         <Stack.Screen name="Search product" component={HomeScreen} />
         <Stack.Screen name="Product" component={ProductScreen}  />
-        <Stack.Screen name="AddProduct" component={AddProductScreen} />
+        <Stack.Screen name="AddProduct" component={AddProductScreen} options={{title:'Search Product'}} />
       </Stack.Navigator>
     );
   }

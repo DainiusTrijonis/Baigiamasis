@@ -6286,6 +6286,11 @@ react-native-screens@^2.15.0:
   resolved "https://registry.yarnpkg.com/react-native-screens/-/react-native-screens-2.16.1.tgz#b105a127378d90018a46daf0c2f6518fca60c06f"
   integrity sha512-WZ7m0sBDVaHbBnlHxwQnUlI6KNfQKHq+Unfw+VBuAlnSXvT+aw6Bb/K2bUlHzBgvrPjwY3Spc7ZERFuTwRLLwg==
 
+react-native-simple-dialogs@^1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/react-native-simple-dialogs/-/react-native-simple-dialogs-1.4.0.tgz#3379f093f4797b2a3609013eeaec41a29cd88220"
+  integrity sha512-EkVhiY9oDgumAIFA1qZUrvg068lRZa4fZoWYfTAAFZGmA495C4npdLmz6VMG3iRgWPwpp19JEzZLGaHYOURxBQ==
+
 react-native-size-matters@^0.3.1:
   version "0.3.1"
   resolved "https://registry.yarnpkg.com/react-native-size-matters/-/react-native-size-matters-0.3.1.tgz#24d0cfc335a2c730f6d58bd7b43ea5a41be4b49f"

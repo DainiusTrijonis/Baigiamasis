@@ -41,7 +41,7 @@ const InfiniteHits = ({ hits, hasMore, refine, navigation, time }) => (
           />
           <View style={{flexDirection:'column',flexShrink: 1}}>
             <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold'}}>{item.name}</Text>
-            <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold'}}>{((time.getTime()/1000 -parseFloat(item.date) )/ 60 ).valueOf().toFixed(1).toString() + " minutes ago"}</Text>
+            <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'normal', opacity:0.3}}>{"Price updated " + ((time.getTime()/1000 -parseFloat(item.date) )/ 60 ).valueOf().toFixed(1).toString() + " minutes ago"}</Text>
             <View style ={{ paddingLeft:20, flexDirection:'row',flexShrink: 1 }}>
               <Text style={{color:'#AB2D2D'}}>{item.lowestPrice+ " €"}</Text>
               <Text>{" - "}</Text>

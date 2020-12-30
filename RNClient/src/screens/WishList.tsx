@@ -123,17 +123,17 @@ export default class WishList extends React.Component<Props> {
   onChangeText = (text:string, itemID:string) => {
     let products = this.state.products
     for(let i=0; i<products.length; i++) {
-      let wish;
-      if(products[i].wish) {
-        wish = products[i].wish
+      if(itemID === products[i].id) {
+        let wish;
+        if(products[i].wish) {
+          wish = products[i].wish
+        }
+        if(wish) {
+          wish.priceWhenToNotify = parseFloat(text);
+        }
+        products[i].wish = wish;
       }
-      if(wish) {
-        wish.priceWhenToNotify = parseFloat(text);
-      }
-      products[i].wish = wish;
     }
-  
-
     this.setState({
       products: products
     })
@@ -144,8 +144,7 @@ export default class WishList extends React.Component<Props> {
   }
   renderWishList = (products:Product[]) => {
     return (
-      
-      <FlatList
+      <FlatList 
         data = {products}
         keyExtractor = {(item:Product) => item.id}
         renderItem={({ item }) => ( 
@@ -177,10 +176,6 @@ export default class WishList extends React.Component<Props> {
       />
     )
   }
-  
-  // renderWishList = () => {
-
-  // }
   render() {
     const {products} = this.state;
     if (this.state.initializing) {

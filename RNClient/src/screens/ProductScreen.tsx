@@ -21,6 +21,10 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import Stars from 'react-native-stars';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth'
 import firestore from '@react-native-firebase/firestore'
+import { ConfirmDialog, Dialog, ProgressDialog } from 'react-native-simple-dialogs';
+
+
+
 export type AppState = {
   product?: Product,
   eCommerceArray?: ECommerce[],
@@ -34,6 +38,10 @@ export type AppState = {
   reviewStars:number,
   wished?:Wish,
   ownProduct:boolean,
+  dialogVisible:boolean,
+  progressVisible:boolean,
+  urlInput:string,
+  errorVisible:boolean,
 }
 interface Props {
   navigation: any
@@ -60,7 +68,10 @@ export default class ProductScreen extends React.Component<Props> {
       reviewText:'',
       reviewStars:2.5,
       ownProduct:false,
-
+      dialogVisible:false,
+      progressVisible:false,
+      urlInput:'',
+      errorVisible:false,
   };
   componentDidMount = () => {
     let product:Product;
@@ -175,7 +186,7 @@ export default class ProductScreen extends React.Component<Props> {
           />
           <View style={{flexDirection:'column',flex:1}}>
             <Text numberOfLines={2} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold', fontFamily:'sans-serif'}}>{product.name}</Text>
-            <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'bold'}}>{((this.state.time.getTime()/1000 -product.date )/ 60 ).valueOf().toFixed(1).toString() + " minutes ago"}</Text>
+            <Text numberOfLines={3} style={{flex: 1, flexWrap: 'wrap',paddingLeft:20, fontWeight: 'normal', opacity:0.3}}>{"Price updated "+((this.state.time.getTime()/1000 -product.date )/ 60 ).valueOf().toFixed(1).toString() + " minutes ago"}</Text>
             {this.state.user? 
               <TouchableOpacity onPress={()=>{this.onPressWish()}} style={{bottom:0,alignSelf:'flex-end',position:'absolute'}}>
                 <Icon name={this.state.wished? "heart":"heart-o"}
@@ -211,19 +222,102 @@ export default class ProductScreen extends React.Component<Props> {
   }
   renderAddECommerce = () => {
     return (
-      <TouchableOpacity onPress={()=>{this.deleteECommerce(eCommerce)}} style={{padding:10,alignItems:'center'}}>
+      <TouchableOpacity onPress={()=>{this.showAddECommerceDialog()}} style={{padding:10,alignItems:'center'}}>
         <Icon name={"plus-circle"}
               size={25} color="gray" 
         />
       </TouchableOpacity>
     )
   }
+  showAddECommerceDialog = () => {
+    this.setState({
+      dialogVisible:true
+    })
+  }
+  addECommerce = async () => {
+    this.setState({
+      progressVisible:true,
+      dialogVisible:false,
+    })
+    await api.addECommerce(this.state.product?.id ?? "",this.state.urlInput).then((res) => {
+      this.setState({
+        progressVisible:false,
+      })
+      if(res === false) {
+        this.setState({
+          errorVisible: true,
+        })
+        setTimeout(() => {
+          this.setState({
+            errorVisible: false,
+          })
+        }, 2000);
+      }
+
+    }).catch((error) => {
+      console.log(error);
+      this.setState({
+        progressVisible:false,
+        urlInput:'',
+      })
+    })
+  }
   renderECommerceArray = (eCommerceArray:ECommerce[]) => {
     const {ownProduct} = this.state
     return (
       <View>
+        <ConfirmDialog
+            visible={this.state.dialogVisible}
+            title="Ecommerce product URL link:"
+            positiveButton= {{
+              title: "CONFIRM",
+              onPress: () => {this.addECommerce()}
+            }}
+            negativeButton={{
+              title: "CANCEL",
+              onPress: () => {this.setState({urlInput:'', dialogVisible:false,})}
+            }}
+            onTouchOutside={() => this.setState({dialogVisible: false})} >
+            <View>
+              <View style={{ backgroundColor:'white', borderWidth:1,borderColor: '#ddd',}} >
+                <TextInput
+                  placeholder={"Enter URL"}
+                  onChangeText={(text) => {this.setState({urlInput:text})}}
+                  value={this.state.urlInput}
+                  style={{}}
+                />
+              </View>
+              <View style={{padding:5}}>
+                <Text style={{opacity:0.3}}>
+                  Example:
+                </Text>
+                <View style = {{padding:5}}>
+                  <Text style={{opacity:0.3}}>
+                    https://www.senukai.lt/p/productLink
+                  </Text>
+                  <Text style={{opacity:0.3}}>
+                    https://www.amazon.de/-/en/productLink
+                  </Text>
+                </View>
+
+              </View>
+
+            </View>
+            
+        </ConfirmDialog>
+        <ProgressDialog
+            visible={this.state.progressVisible}
+            title="Progress Dialog"
+            message="Please, wait..."
+        />
+        <ProgressDialog
+            visible={this.state.errorVisible}
+            title="Error"
+            message="Wrong url or services are inacessible"
+        />
         {ownProduct ? this.renderAddECommerce() : null}
         <FlatList
+          contentContainerStyle={{ paddingBottom:300}}
           data = {eCommerceArray}
           keyExtractor = {(item) => item.id}
           renderItem={({ item }) => (
@@ -339,38 +433,42 @@ export default class ProductScreen extends React.Component<Props> {
   renderReviewPage = (reviewArray:Review[]) => {
     return (
       <View style ={{}}>
-        <View style={{flexShrink: 1, padding:5, borderBottomWidth: 1, borderColor: '#ddd',}}>
+        <View style={{ padding:5, borderBottomWidth: 1, borderColor: '#ddd',}}>
           <Text numberOfLines={1} style={{ flexWrap: 'wrap',padding:5, fontWeight: 'bold', fontFamily:'sans-serif'}}> {"Reviews about - "+ this.state.product?.name} </Text>
         </View>
         {this.state.user? this.renderSendReview(): <View></View>}
-        <FlatList
-          data = {reviewArray}
-          keyExtractor = {(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.item}>
-              <View style = {{ flexDirection:'row'}}>
-                <View style ={{paddingRight:5,flexDirection:'column',alignItems:'center'}}>
-                  <Text style={{fontSize:9,fontWeight: 'bold', fontFamily:'sans-serif'}}>{item.ownerEmail}</Text>
-                  <Text style={{fontSize:8}}>{item.date.toDate().toDateString()+" " + item.date.toDate().toLocaleTimeString('lt-LT')}</Text>
-                  <View style={{alignItems:'center'}}>
-                    <Stars
-                      display={item.stars}
-                      spacing={8}
-                      count={5}
-                      starSize={40}
-                      fullStar={<Icon name={'star'} style={[styles.myStarStyle]}/>}
-                      emptyStar={<Icon name={'star-o'} style={[styles.myStarStyle, styles.myEmptyStarStyle]}/>}
-                      halfStar={<Icon name={'star-half'} style={[styles.myStarStyle]}/>}
-                    />
+        <View style={{flexGrow:1, width:'100%'}}>
+          <FlatList
+            contentContainerStyle={{ paddingBottom:300}}
+            data = {reviewArray}
+            keyExtractor = {(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.item}>
+                <View style = {{ flexDirection:'row'}}>
+                  <View style ={{paddingRight:5,flexDirection:'column',alignItems:'center'}}>
+                    <Text style={{fontSize:9,fontWeight: 'bold', fontFamily:'sans-serif'}}>{item.ownerEmail}</Text>
+                    <Text style={{fontSize:8}}>{item.date.toDate().toDateString()+" " + item.date.toDate().toLocaleTimeString('lt-LT')}</Text>
+                    <View style={{alignItems:'center'}}>
+                      <Stars
+                        display={item.stars}
+                        spacing={8}
+                        count={5}
+                        starSize={40}
+                        fullStar={<Icon name={'star'} style={[styles.myStarStyle]}/>}
+                        emptyStar={<Icon name={'star-o'} style={[styles.myStarStyle, styles.myEmptyStarStyle]}/>}
+                        halfStar={<Icon name={'star-half'} style={[styles.myStarStyle]}/>}
+                      />
+                    </View>
+                  </View>
+                  <View>
+                    <Text style={{fontSize:9}}>{item.comment}</Text>
                   </View>
                 </View>
-                <View>
-                  <Text style={{fontSize:9}}>{item.comment}</Text>
-                </View>
               </View>
-            </View>
-          )}
-        />
+            )}
+          />
+        </View>
+
       </View>
     )
   }

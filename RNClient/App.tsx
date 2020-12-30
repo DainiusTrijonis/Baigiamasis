@@ -1,19 +1,17 @@
 import * as React from 'react';
-import { NavigationContainer, useNavigation } from '@react-navigation/native';
+import { NavigationContainer} from '@react-navigation/native';
 import BottomTabNavigator from './src/screens/navigation/TabNavigation'
 import auth from '@react-native-firebase/auth'
 import firestore from '@react-native-firebase/firestore'
 import messaging from '@react-native-firebase/messaging'
 import { createStackNavigator } from '@react-navigation/stack';
-
-const stack = createStackNavigator();
+import { createApiClient } from './src/api/products';
+const api = createApiClient();
 async function sendToken() {
   auth().onAuthStateChanged(async (user)=>{
     if(user) {
       const fcmToken = await messaging().getToken()
-      await firestore().doc(`user/${user.uid}`).update({
-          fcmTokens: firestore.FieldValue.arrayUnion(fcmToken),
-      });
+      api.addToken(fcmToken,user.uid);
     }
   })
 }

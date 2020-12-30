@@ -217,48 +217,6 @@ exports.addToIndex = functions.firestore.document('product/{productId}').onCreat
   return index.saveObject({ ...data, objectID});
 })
 
-// exports.sendMessage = functions.https.onRequest((req,res) => {
-//   let title = "Price decrease"
-//   let content = "Price decrease of "
-//   admin.firestore().collection('product').doc("naB3HSlRvhSfGM2wC5GT").collection('wished').withConverter(wishConverter).get().then((querySnapshot) => {
-//     let wishList = new Array<Wish>();
-//     querySnapshot.forEach((wishQuery) => {
-//       wishList.push(wishQuery.data())
-//     })
-//     Promise.all(
-//       wishList.map(async (wish) => {
-//         const query = await admin.firestore().collection('user').withConverter(userConverter).doc(wish.uid).get();
-//         if (query.exists) {
-//           const user = query.data();
-//           if (user && user.fcmTokens) {
-//             return user.fcmTokens;
-//           } else {
-//             return [];
-//           }
-//         }
-//         else {
-//           return [];
-//         }
-//       })
-//     ).then((data)=>{
-//       for(const tokens of data) {
-//         console.log(tokens);
-//         admin.messaging().sendMulticast({
-//           tokens: tokens,
-//           notification: {
-//             title: title,
-//             body: content,
-//           },
-          
-//         }).then((wow) => {
-//           console.log(wow);
-//         })
-//       }
-//       res.send("wow");
-//     })
-//   })
-// })
-
 exports.updateToIndex = functions.firestore.document('product/{productId}').onUpdate(async (snapshot)=>{
   const data = snapshot.after.data();
   const productAfter = productConverter.fromFirestore(snapshot.after)
@@ -318,30 +276,43 @@ exports.updateToIndex = functions.firestore.document('product/{productId}').onUp
 
 exports.deleteFromIndex = functions.firestore.document('product/{productId}').onDelete((snapshot)=>index.deleteObject(snapshot.id))
 
-
-export const updateProductCron = functions.runWith({memory:'2GB'}).pubsub.schedule('every 5 minutes').onRun(async (context) => {
-  const time = admin.firestore.Timestamp.now().seconds-3600;
+export const updateProductCron = functions.runWith({memory:'2GB',timeoutSeconds:120}).pubsub.schedule('every 1 minutes').onRun(async (context) => {
+  console.log("Cron function");
+  const time = admin.firestore.Timestamp.now().seconds-60;
   const bool:boolean = await admin.firestore().collection('product').where('date','<',time).limit(1).withConverter(productConverter).get().then(async (querySnapshot)=>{
     let array:FirebaseFirestore.QueryDocumentSnapshot<Product>[] =[] 
     querySnapshot.forEach(element => {
       array.push(element);
     });
     const browser:puppeteer.Browser = await puppeteer.launch({headless: true, args: [ '--no-sandbox', '--disable-setuid-sandbox']});
+
     const productMap:boolean = await Promise.all(array.map( async(product) => {
       return product.ref.collection('ECommerce').withConverter(eCommerceConverter).get().then(async (eCommerceSnapshot) => {
         let arrayEcommerce:FirebaseFirestore.QueryDocumentSnapshot<ECommerce>[]= [];
         eCommerceSnapshot.forEach(element => {
           arrayEcommerce.push(element);
         })
+        if(arrayEcommerce.length==0) {
+          let pro = product.data()
+          pro.date = admin.firestore.Timestamp.now().seconds
+          product.ref.set(pro).then(()=>{
+            console.log("Succesfully update product");
+          }).catch((error)=>{
+            console.log(error)
+          });
+          return true;
+        }
         return await Promise.all(arrayEcommerce.map(async (eCommerceQuery) => {
           let eCommerce:ECommerce = eCommerceQuery.data();
+          let page:puppeteer.Page = await browser.newPage();
+          page.setDefaultTimeout(120000);
           if(eCommerce.shopName === "Senukai") {
-            const updatedECommerce = await updateSenukaiPrice(eCommerce, await browser.newPage())
+            const updatedECommerce = await updateSenukaiPrice(eCommerce, page)
             eCommerceQuery.ref.set(updatedECommerce).then(()=>{console.log()}).catch((error)=>{console.log(error)})
             return updatedECommerce
           }
           else if (eCommerce.shopName === "Amazon") {
-            const updatedECommerce = await updateAmazonPrice(eCommerce, await browser.newPage())
+            const updatedECommerce = await updateAmazonPrice(eCommerce, page)
             eCommerceQuery.ref.set(updatedECommerce).then(()=>{console.log()}).catch((error)=>{console.log(error)})
             return updatedECommerce
           }
@@ -421,7 +392,7 @@ export const updateProductCron = functions.runWith({memory:'2GB'}).pubsub.schedu
   return bool;
 })
 
-export const updateProductTest = functions.runWith({memory:'2GB'}).https.onRequest(async (request,response) => {
+export const updateProductTest = functions.runWith({memory:'2GB', timeoutSeconds: 120}).https.onRequest(async (request,response) => {
   const time = admin.firestore.Timestamp.now().seconds-60;
   const bool:boolean = await admin.firestore().collection('product').where('date','<',time).limit(1).withConverter(productConverter).get().then(async (querySnapshot)=>{
     let array:FirebaseFirestore.QueryDocumentSnapshot<Product>[] =[] 
@@ -429,21 +400,39 @@ export const updateProductTest = functions.runWith({memory:'2GB'}).https.onReque
       array.push(element);
     });
     const browser:puppeteer.Browser = await puppeteer.launch({headless: true, args: [ '--no-sandbox', '--disable-setuid-sandbox']});
+    browser.createIncognitoBrowserContext().then((val) => {
+      console.log();
+    }).catch((error) => {
+      console.log(error)
+    });
     const productMap:boolean = await Promise.all(array.map( async(product) => {
       return product.ref.collection('ECommerce').withConverter(eCommerceConverter).get().then(async (eCommerceSnapshot) => {
         let arrayEcommerce:FirebaseFirestore.QueryDocumentSnapshot<ECommerce>[]= [];
         eCommerceSnapshot.forEach(element => {
           arrayEcommerce.push(element);
         })
+        if(arrayEcommerce.length==0) {
+          let pro = product.data()
+          pro.date = admin.firestore.Timestamp.now().seconds
+          product.ref.set(pro).then(()=>{
+            console.log("Succesfully update product");
+          }).catch((error)=>{
+            console.log(error)
+          });
+          return true;
+        }
         return await Promise.all(arrayEcommerce.map(async (eCommerceQuery) => {
           let eCommerce:ECommerce = eCommerceQuery.data();
+          let page:puppeteer.Page = await browser.newPage();
+
+          page.setDefaultTimeout(80000);
           if(eCommerce.shopName === "Senukai") {
-            const updatedECommerce = await updateSenukaiPrice(eCommerce, await browser.newPage())
+            const updatedECommerce = await updateSenukaiPrice(eCommerce, page)
             eCommerceQuery.ref.set(updatedECommerce).then(()=>{console.log()}).catch((error)=>{console.log(error)})
             return updatedECommerce
           }
           else if (eCommerce.shopName === "Amazon") {
-            const updatedECommerce = await updateAmazonPrice(eCommerce, await browser.newPage())
+            const updatedECommerce = await updateAmazonPrice(eCommerce, page)
             eCommerceQuery.ref.set(updatedECommerce).then(()=>{console.log()}).catch((error)=>{console.log(error)})
             return updatedECommerce
           }
@@ -479,7 +468,7 @@ export const updateProductTest = functions.runWith({memory:'2GB'}).https.onReque
           });
           product.ref.collection("history").withConverter(historyConverter).add(new History(updatedProduct.lowestPrice,updatedProduct.date)).then((historyQue) => {
             console.log("update history")
-            historyQue.parent.where('date','<',time-86000).withConverter(historyConverter).get().then((referenceHistory)=> {
+            historyQue.parent.where('date','<',time-43000).withConverter(historyConverter).get().then((referenceHistory)=> {
               referenceHistory.forEach(historyRef => {
                 historyRef.ref.delete().then(()=>console.log("succesfully delete old history")).catch((eror)=>console.log(eror));
               });
@@ -520,9 +509,8 @@ export const updateProductTest = functions.runWith({memory:'2GB'}).https.onReque
     console.log(error);
     return false;
   })
-  response.send(bool);
+  response.send(bool)
 })
-
 
 function sortBy(arr:ECommerce[], ascending:boolean) {
   return arr.sort((a, b) => {
@@ -535,7 +523,7 @@ function sortBy(arr:ECommerce[], ascending:boolean) {
 async function updateSenukaiPrice(eCommerce:ECommerce, page:puppeteer.Page):Promise<ECommerce> {
   const [response] = await Promise.all([
     page.waitForNavigation({
-      waitUntil: 'networkidle0',
+      waitUntil:'domcontentloaded',
     }),
     await page.goto(eCommerce.href),
   ])
@@ -565,18 +553,139 @@ async function updateSenukaiPrice(eCommerce:ECommerce, page:puppeteer.Page):Prom
   })
   return update;
 }
-
-async function updateAmazonPrice(eCommerce:ECommerce, page:puppeteer.Page):Promise<ECommerce> {
+async function getSenukaiProductFromHref(eCommerce:ECommerce, page:puppeteer.Page):Promise<ECommerce> {
   const [response] = await Promise.all([
     page.waitForNavigation({
-      waitUntil: 'networkidle0',
+      waitUntil: 'domcontentloaded',
     }),
     await page.goto(eCommerce.href),
   ])
 
   const update = await Promise.all([
     response,
+    await page.$$(".product-righter h1").then(async (doc) => {
+      if(doc.length>0) {
+        let productName = await page.$eval(".product-righter h1", (elm) => elm.innerHTML.replace('\n','').replace('\n',''))
+        const name:string = productName;
+        return name;
+      }
+      else {
+        return ""
+      }
+    }),
+    await page.$$(".product-price-details span span").then(async (doc) => {
+      if(doc.length>0) {
+        let buyboxPrice = await page.$eval(".product-price-details span span", (elm) => elm.innerHTML.replace(',', '.').replace(' ',''))
+        const price:number = parseFloat(buyboxPrice);
+        return price;
+      }
+      else {
+        return 0
+      }
+    }),
+    await page.$$(".main-image img").then(async (doc) => {
+      if(doc.length>0) {
+        let imageURL = await page.$eval(".main-image img", (elm) => elm.getAttribute('src'))
+        console.log(imageURL);
+        if(imageURL) {
+          const url:string = imageURL;
+          return url;
+        }
+        else {
+          return ""
+        }
+      }
+      else {
+        return ""
+      }
+    }),
+  ]).then((data) => {
+    
+    let price = data[2];
+    if(isNaN(price) || !price) { 
+      price = 0;
+    }
+    let updatedECommerce = eCommerce;
+    updatedECommerce.lowestPrice = price;
+    updatedECommerce.productName = data[1];
+    updatedECommerce.photoURL = data[3];
+    return updatedECommerce;
+  })
+  return update;
+}
+async function getAmazonProductFromHref(eCommerce:ECommerce, page:puppeteer.Page):Promise<ECommerce> {
+  const [response] = await Promise.all([
+    page.waitForNavigation({
+      waitUntil: 'domcontentloaded',
+    }),
+    await page.goto(eCommerce.href),
+  ])
+
+  const update = await Promise.all([
+    response,
+    await page.$$("#title").then(async (doc) => {
+      if(doc.length>0) {
+        let productName = await page.$eval("#title span", (elm) => elm.innerHTML.replace (/\n*\n/g, ''))
+        const name:string = productName;
+        return name;
+      }
+      else {
+        return ""
+      }
+    }),
     await page.$$(".a-box-group #price_inside_buybox").then(async (doc)=>{
+      if(doc.length>0) {
+        let buyboxPrice = await page.$eval(".a-box-group #price_inside_buybox", (elm) => elm.innerHTML);
+        console.log("buyBoxPrice:" +buyboxPrice);
+        const price:number = parseFloat(buyboxPrice.replace('€','').replace(',',''));
+        console.log("price:" +price);
+        return price
+      }
+      else {
+        return 0
+      }
+    }),
+    await page.$$("#imgTagWrapperId img").then(async (doc) => {
+      if(doc.length>0) {
+        let imageURL = await page.$eval("#imgTagWrapperId img", (elm) => elm.getAttribute('src'))
+        if(imageURL) {
+          const url:string = imageURL;
+          return url;
+        }
+        else {
+          return ""
+        }
+      }
+      else {
+        return ""
+      }
+    }),
+  ]).then((data) => {
+    
+    let price = data[2];
+    if(isNaN(price) || !price) { 
+      price = 0;
+    }
+    let updatedECommerce = eCommerce;
+    updatedECommerce.lowestPrice = price;
+    updatedECommerce.productName = data[1];
+    updatedECommerce.photoURL = data[3];
+    return updatedECommerce;
+  })
+  return update;
+}
+async function updateAmazonPrice(eCommerce:ECommerce, page:puppeteer.Page):Promise<ECommerce> {
+  const [response] = await Promise.all([
+    page.waitForNavigation({
+      waitUntil:'networkidle0',
+    }),
+    await page.goto(eCommerce.href),
+  ])
+  
+  const update = await Promise.all([
+    response,
+    await page.$$(".a-box-group #price_inside_buybox").then(async (doc)=>{
+      console.log(doc.length);
       if(doc.length>0) {
         let buyboxPrice = await page.$eval(".a-box-group #price_inside_buybox", (elm) => elm.innerHTML);
         console.log("buyBoxPrice:" +buyboxPrice);
@@ -650,6 +759,76 @@ exports.addProduct = functions.https.onCall((data) => {
   });
 })
 
+exports.addECommerce = functions.https.onCall(async (data) => {
+  const bool = await admin.auth().verifyIdToken(data['idToken']).then(async (token) => {
+    const productID:string = data['productID'];
+    let product:Product = await admin.firestore().collection('product').doc(productID).withConverter(productConverter).get().then((queryProduct) => {
+      let pro:Product;
+      let dat = queryProduct.data();
+      if(dat)
+      pro = dat;
+      else {
+        pro = new Product("","",0,0,0,0,"")
+      }
+      return pro;
+    }).catch((error) => {
+      console.log(error);
+      return new Product("","",0,0,0,0,"");
+    })
+
+    if(token.uid == product.createdByUID) {
+      const url:string = data['url'];
+      let eCommerce:ECommerce = new ECommerce("","","",0,"","");
+      const browser:puppeteer.Browser = await puppeteer.launch({headless: true, args: [ '--no-sandbox', '--disable-setuid-sandbox']});
+      if(url.startsWith("https://www.senukai.lt/",0)) {
+        eCommerce.shopName = "Senukai";
+        eCommerce.shopLogoURL = 'https://www.senukai.lt/assets/schema/senukai_lt-f17959262e224d00a32be8c31cfca13315fc1a8f78bb91e4387a93042574f5a7.png';
+        eCommerce.href = url;
+        await getSenukaiProductFromHref(eCommerce,await browser.newPage()).then( (eCo) => {
+          eCommerce = eCo;
+        }).catch((error) => {
+          console.log(error);
+        })
+      } 
+      else if (url.startsWith("https://www.amazon.de/",0)) {
+        eCommerce.shopName = "Amazon";
+        eCommerce.shopLogoURL = 'https://g.foolcdn.com/image/?url=https:%2F%2Fg.foolcdn.com%2Feditorial%2Fimages%2F485626%2Famzn-logo.jpg&w=700&op=resize';
+        eCommerce.href = url;
+        await getAmazonProductFromHref(eCommerce,await browser.newPage()).then( (eCo) => {
+          eCommerce = eCo;
+        }).catch((error) => {
+          console.log(error);
+        })
+      } 
+      else {
+        return false;
+      }
+      if(eCommerce.productName!="" && eCommerce.productName !="") {
+        console.log(eCommerce)
+        const result = admin.firestore().collection('product').doc(productID).collection('ECommerce').withConverter(eCommerceConverter).add(eCommerce).then(() => {
+          return true;
+        }).catch((error) => {
+          console.log(error);
+          return false;
+        });
+        return result;
+      }
+      else {
+        console.log(eCommerce)
+        return false;
+      }
+
+    }
+    else {
+      return false;
+    }
+  }).catch((error)=>{
+    console.log(error);
+    return false;
+  });
+  console.log(bool)
+  return bool
+})
 
 async function getArrayECommerceOnSearchSenukai(searchString:string,page:puppeteer.Page):Promise<ECommerce[]>{
   
@@ -743,6 +922,11 @@ async function getArrayECommerceOnSearchSenukai(searchString:string,page:puppete
   })
   if(ryzas.length>0)
   ryzas[0].shopLogoURL = 'https://www.senukai.lt/assets/schema/senukai_lt-f17959262e224d00a32be8c31cfca13315fc1a8f78bb91e4387a93042574f5a7.png'
+  page.close().then(() => {
+    console.log("page close")
+  }).catch((error)=>{
+    console.log("page close error",error);
+  })
   return ryzas
 
 
@@ -823,6 +1007,11 @@ async function getArrayECommerceOnSearchAmazon(searchString:string,page:puppetee
   })
   if(eCommerces.length>0)
   eCommerces[0].shopLogoURL = "https://g.foolcdn.com/image/?url=https:%2F%2Fg.foolcdn.com%2Feditorial%2Fimages%2F485626%2Famzn-logo.jpg&w=700&op=resize"
+  page.close().then(()=>{
+    console.log("close page")
+  }).catch((error) => {
+    console.log("close page error ", error)
+  });
   return eCommerces;
 
 }
