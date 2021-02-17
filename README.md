@@ -1,7 +1,7 @@
 ﻿# ECommerce price checker
  
  ---
-  Price checking of amazon.de and senukai.lt sites product prices app
+  ## Price checking of amazon.de and senukai.lt sites product prices app
   
   Back-End with nodeJS and Firebase modules like functions for server side
   
