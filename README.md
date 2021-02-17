@@ -10,4 +10,11 @@
   TypeScript is used in both
  
  ---
-
+ 
+ ## TODO:
+ 
+ ---
+ 
+  Amazon captcha solve or solve only lithuanian ecommerce sites witch are without captchas.
+ 
+ ---
