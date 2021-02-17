@@ -15,6 +15,6 @@
  
  ---
  
-  Amazon captcha solve or solve only lithuanian ecommerce sites witch are without captchas.
+  Amazon captcha solve or solve only lithuanian ecommerce sites witch are without captchas (Amazon captcha apear on google servers but not locally need to test additionaly local if captcha appears on lets say 1k get requests in 10 minutes)
  
  ---
